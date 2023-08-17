@@ -62,7 +62,6 @@ defmodule AlpacaProxyWeb.V1Test do
 
   for path <- ~w[/v1/events/journals/status /v1/events/trades] do
     describe "GET #{path}" do
-      @tag :current
       test "returns 200", %{bypass: bypass, endpoint: endpoint} do
         Bypass.expect_once(bypass, "GET", unquote(path), &sse_response(&1, 200, @messages))
 
