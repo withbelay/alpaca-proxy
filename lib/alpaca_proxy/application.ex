@@ -1,38 +1,26 @@
 defmodule AlpacaProxy.Application do
-  # See https://hexdocs.pm/elixir/Application.html
-  # for more information on OTP Applications
   @moduledoc false
 
   use Application
 
-  @impl true
-  def start(_type, _args) do
-    children = [
-      # Start the Telemetry supervisor
-      AlpacaProxyWeb.Telemetry,
-      # Start the Ecto repository
-      AlpacaProxy.Repo,
-      # Start the PubSub system
-      {Phoenix.PubSub, name: AlpacaProxy.PubSub},
-      # Start Finch
-      {Finch, name: AlpacaProxy.Finch},
-      # Start the Endpoint (http/https)
-      AlpacaProxyWeb.Endpoint
-      # Start a worker by calling: AlpacaProxy.Worker.start_link(arg)
-      # {AlpacaProxy.Worker, arg}
-    ]
-
-    # See https://hexdocs.pm/elixir/Supervisor.html
-    # for other strategies and supported options
-    opts = [strategy: :one_for_one, name: AlpacaProxy.Supervisor]
-    Supervisor.start_link(children, opts)
-  end
+  alias AlpacaProxyWeb.Endpoint
 
   # Tell Phoenix to update the endpoint configuration
   # whenever the application is updated.
-  @impl true
+  @impl Application
   def config_change(changed, _new, removed) do
-    AlpacaProxyWeb.Endpoint.config_change(changed, removed)
+    Endpoint.config_change(changed, removed)
     :ok
+  end
+
+  @impl Application
+  def start(_type, _args) do
+    children = [
+      {Phoenix.PubSub, name: AlpacaProxy.PubSub},
+      Endpoint
+    ]
+
+    opts = [strategy: :one_for_one, name: AlpacaProxy.Supervisor]
+    Supervisor.start_link(children, opts)
   end
 end
