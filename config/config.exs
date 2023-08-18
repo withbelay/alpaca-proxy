@@ -9,4 +9,4 @@ config :logger, :console, format: "$time $metadata[$level] $message\n", metadata
 
 config :phoenix, :json_library, Jason
 
-config_env() in ~w[dev prod test]a && import_config "#{config_env()}.exs"
+import_config "#{config_env()}.exs"

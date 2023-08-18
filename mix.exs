@@ -18,17 +18,17 @@ defmodule AlpacaProxy.MixProject do
         {:phoenix, "~> 1.7"},
         {:plug_cowboy, "~> 2.6"},
         # Code checking
-        {:credo, "~> 1.7", only: :checks, runtime: false},
-        {:dialyxir, "~> 1.3", only: :checks, runtime: false},
+        {:credo, "~> 1.7", only: :ci_checks, runtime: false},
+        {:dialyxir, "~> 1.3", only: :ci_checks, runtime: false},
         # Documentation
-        {:ex_doc, "~> 0.30", only: :docs, runtime: false},
+        {:ex_doc, "~> 0.30", only: :ci_docs, runtime: false},
         # Tests
-        {:bypass, "~> 2.1", only: :test},
-        {:excoveralls, "~> 0.17", only: :test}
+        {:bypass, "~> 2.1", only: [:ci_checks, :test]},
+        {:excoveralls, "~> 0.17", only: :ci_checks}
       ],
       elixir: "~> 1.15",
       elixirc_paths: elixirc_paths(Mix.env()),
-      preferred_cli_env: [credo: :checks, dialyzer: :checks, docs: :docs],
+      preferred_cli_env: [credo: :ci_checks, dialyzer: :ci_checks, docs: :ci_docs],
       start_permanent: Mix.env() == :prod,
       test_coverage: [tool: ExCoveralls],
       version: "1.0.0-rc.0"
