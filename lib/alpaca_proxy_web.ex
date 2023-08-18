@@ -75,7 +75,6 @@ defmodule AlpacaProxyWeb do
       |> Application.fetch_env!(AlpacaProxyWeb)
       |> Map.new()
 
-    method = request_method_to_function(conn.method)
     token = Base.encode64("#{alpaca_api_env.key}:#{alpaca_api_env.secret}")
 
     headers =
@@ -87,31 +86,23 @@ defmodule AlpacaProxyWeb do
     |> Map.take(~w[host port scheme]a)
     |> then(&Map.merge(%URI{path: conn.request_path, query: conn.query_string}, &1))
     |> URI.to_string()
-    |> fetch!(method, Map.to_list(conn.body_params), headers, stream)
+    |> fetch!(conn.method, Map.to_list(conn.body_params), headers, stream)
   end
 
-  @spec request_method_to_function(method :: String.t()) :: function :: atom()
-  defp request_method_to_function(method) do
-    method
-    |> String.downcase()
-    |> then(&(&1 <> "!"))
-    |> String.to_existing_atom()
-  end
-
-  @spec fetch!(String.t(), method :: atom(), body_params(), headers(), stream :: true) ::
+  @spec fetch!(String.t(), method :: String.t(), body_params(), headers(), stream :: true) ::
           async_response :: AsyncResponse.t()
-  defp fetch!(url, :get!, [], headers, true) do
+  defp fetch!(url, "GET", [], headers, true) do
     opts = [recv_timeout: :infinity, stream_to: self()]
     HTTPoison.get!(url, headers, opts)
   end
 
-  @spec fetch!(String.t(), method :: atom(), body_params(), headers(), stream :: false) ::
+  @spec fetch!(String.t(), method :: String.t(), body_params(), headers(), stream :: false) ::
           response :: Response.t()
-  defp fetch!(url, :get!, [], headers, false) do
+  defp fetch!(url, "GET", [], headers, false) do
     HTTPoison.get!(url, headers)
   end
 
-  defp fetch!(url, :post!, body_params, headers, false) do
+  defp fetch!(url, "POST", body_params, headers, false) do
     HTTPoison.post!(url, {:form, body_params}, headers)
   end
 end
