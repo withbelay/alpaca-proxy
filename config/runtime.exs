@@ -12,33 +12,26 @@ if System.get_env("ALPACA_PROXY_SERVER") do
 end
 
 if config_env() == :prod do
-  api_port = System.get_env("ALPACA_PROXY_API_PORT") || "80"
+  api_port = System.get_env("ALPACA_PROXY_API_PORT", "80")
 
   config :alpaca_proxy, AlpacaProxyWeb,
-    host: System.get_env("ALPACA_PROXY_API_HOST"),
-    key: System.get_env("ALPACA_PROXY_API_KEY"),
+    host: System.fetch_env!("ALPACA_PROXY_API_HOST"),
+    key: System.fetch_env!("ALPACA_PROXY_API_KEY"),
     port: String.to_integer(api_port),
-    scheme: System.get_env("ALPACA_PROXY_API_SCHEME") || "https",
-    secret: System.get_env("ALPACA_PROXY_API_SECRET")
+    scheme: System.get_env("ALPACA_PROXY_API_SCHEME", "https"),
+    secret: System.fetch_env!("ALPACA_PROXY_API_SECRET")
 
-  secret_key_base =
-    System.get_env("ALPACA_PROXY_SECRET_KEY_BASE") ||
-      raise """
-      environment variable ALPACA_PROXY_SECRET_KEY_BASE is missing.
-      You can generate one by calling: mix phx.gen.secret
-      """
-
-  force_ssl = System.get_env("ALPACA_PROXY_FORCE_SSL") || "false"
-  host = System.get_env("ALPACA_PROXY_HOST") || "localhost"
+  force_ssl = System.get_env("ALPACA_PROXY_FORCE_SSL", "false")
+  host = System.get_env("ALPACA_PROXY_HOST", "localhost")
   ipv6_remote_ip = {0, 0, 0, 0, 0, 0, 0, 0}
   # ipv6_local_ip = {0, 0, 0, 0, 0, 0, 0, 1}
-  port = System.get_env("ALPACA_PROXY_PORT") || "80"
+  port = System.get_env("ALPACA_PROXY_PORT", "80")
+  secret_key_base = System.fetch_env!("ALPACA_PROXY_SECRET_KEY_BASE")
   ssl_cert_path = System.get_env("ALPACA_PROXY_SSL_CERT_PATH")
   ssl_key_path = System.get_env("ALPACA_PROXY_SSL_KEY_PATH")
-  ssl_port_string = System.get_env("ALPACA_PROXY_SSL_PORT") || "443"
+  ssl_port_string = System.get_env("ALPACA_PROXY_SSL_PORT", "443")
   ssl_port = String.to_integer(ssl_port_string)
-  # "compatible" for old browsers support
-  ssl_suite = System.get_env("ALPACA_PROXY_SSL_SUITE") || "strong"
+  ssl_suite = System.get_env("ALPACA_PROXY_SSL_SUITE", "strong")
 
   config :alpaca_proxy, AlpacaProxyWeb.Endpoint,
     force_ssl: [hsts: force_ssl == "true"],
