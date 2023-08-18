@@ -17,14 +17,14 @@ defmodule AlpacaProxy.MixProject do
         {:jason, "~> 1.4"},
         {:phoenix, "~> 1.7"},
         {:plug_cowboy, "~> 2.6"},
-        # Code checking
+        # Code checking tools
         {:credo, "~> 1.7", only: :ci_checks, runtime: false},
         {:dialyxir, "~> 1.3", only: :ci_checks, runtime: false},
+        {:excoveralls, "~> 0.17", only: :ci_checks},
         # Documentation
         {:ex_doc, "~> 0.30", only: :ci_docs, runtime: false},
-        # Tests
-        {:bypass, "~> 2.1", only: [:ci_checks, :test]},
-        {:excoveralls, "~> 0.17", only: :ci_checks}
+        # Used only in tests
+        {:bypass, "~> 2.1", only: [:ci_checks, :test]}
       ],
       elixir: "~> 1.15",
       elixirc_paths: elixirc_paths(Mix.env()),
