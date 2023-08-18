@@ -1,44 +1,20 @@
 defmodule AlpacaProxyWeb.Router do
-  use AlpacaProxyWeb, :router
+  use Phoenix.Router, helpers: false
 
-  pipeline :browser do
-    plug :accepts, ["html"]
-    plug :fetch_session
-    plug :fetch_live_flash
-    plug :put_root_layout, {AlpacaProxyWeb.Layouts, :root}
-    plug :protect_from_forgery
-    plug :put_secure_browser_headers
-  end
+  import Plug.Conn
+  import Phoenix.Controller
 
   pipeline :api do
-    plug :accepts, ["json"]
+    plug :accepts, ~w[json]
   end
 
-  scope "/", AlpacaProxyWeb do
-    pipe_through :browser
-
-    get "/", PageController, :home
-  end
-
-  # Other scopes may use custom stacks.
-  # scope "/api", AlpacaProxyWeb do
-  #   pipe_through :api
-  # end
-
-  # Enable LiveDashboard and Swoosh mailbox preview in development
-  if Application.compile_env(:alpaca_proxy, :dev_routes) do
-    # If you want to use the LiveDashboard in production, you should put
-    # it behind authentication and allow only admins to access it.
-    # If your application does not have an admins-only section yet,
-    # you can use Plug.BasicAuth to set up some basic authentication
-    # as long as you are also using SSL (which you should anyway).
-    import Phoenix.LiveDashboard.Router
-
-    scope "/dev" do
-      pipe_through :browser
-
-      live_dashboard "/dashboard", metrics: AlpacaProxyWeb.Telemetry
-      forward "/mailbox", Plug.Swoosh.MailboxPreview
-    end
+  scope "/v1", AlpacaProxyWeb do
+    pipe_through :api
+    get "/accounts", V1Controller, :rest
+    get "/accounts/:account_id", V1Controller, :rest
+    get "/events/journals/status", V1Controller, :sse
+    get "/events/trades", V1Controller, :sse
+    post "/journals", V1Controller, :rest
+    get "/trading/accounts/:account_id/positions", V1Controller, :rest
   end
 end

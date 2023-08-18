@@ -1,113 +1,108 @@
+# credo:disable-for-this-file Credo.Check.Refactor.ModuleDependencies
 defmodule AlpacaProxyWeb do
   @moduledoc """
-  The entrypoint for defining your web interface, such
-  as controllers, components, channels, and so on.
-
-  This can be used in your application as:
-
-      use AlpacaProxyWeb, :controller
-      use AlpacaProxyWeb, :html
-
-  The definitions below will be executed for every controller,
-  component, etc, so keep them short and clean, focused
-  on imports, uses and aliases.
-
-  Do NOT define functions inside the quoted expressions
-  below. Instead, define additional modules and import
-  those modules here.
+  Core proxy functions to work with REST and Server Sent Event requests.
   """
 
-  def static_paths, do: ~w(assets fonts images favicon.ico robots.txt)
+  alias HTTPoison.AsyncChunk
+  alias HTTPoison.AsyncEnd
+  alias HTTPoison.AsyncHeaders
+  alias HTTPoison.AsyncResponse
+  alias HTTPoison.AsyncStatus
+  alias HTTPoison.Response
+  alias Plug.Conn
 
-  def router do
-    quote do
-      use Phoenix.Router, helpers: false
+  @type body_params :: Conn.params() | []
+  @type headers :: HTTPoison.headers()
 
-      # Import common connection and controller functions to use in pipelines
-      import Plug.Conn
-      import Phoenix.Controller
-      import Phoenix.LiveView.Router
+  @doc "Retrieves data from conn, passes them to requests and applies response data to current connection."
+  @spec rest(Conn.t()) :: conn :: Conn.t()
+  def rest(%Conn{} = conn) do
+    conn
+    |> fetch!(false)
+    |> then(&copy_data(conn, &1))
+  end
+
+  @spec copy_data(Conn.t(), response :: Response.t()) :: conn :: Conn.t()
+  defp copy_data(conn, %Response{body: body, headers: headers, status_code: code}) do
+    headers
+    |> Enum.reduce(conn, fn {key, value}, conn ->
+      Conn.put_resp_header(conn, key, value)
+    end)
+    |> Conn.send_resp(code, body)
+  end
+
+  @doc "Retrieves data from conn, passes them to requests and applies synchronous response data to current connection."
+  @spec server_sent_event(Conn.t()) :: conn :: Conn.t()
+  def server_sent_event(conn) do
+    %AsyncResponse{} = fetch!(conn, true)
+    proxy_server_sent_event(conn)
+  end
+
+  @spec proxy_server_sent_event(Conn.t()) :: conn :: Conn.t()
+  defp proxy_server_sent_event(%Conn{} = conn, status_code \\ nil) do
+    receive do
+      %AsyncStatus{code: status_code} ->
+        proxy_server_sent_event(conn, status_code)
+
+      %AsyncHeaders{headers: headers} ->
+        conn
+        |> put_headers(headers)
+        |> Conn.send_chunked(status_code)
+        |> proxy_server_sent_event(status_code)
+
+      %AsyncChunk{chunk: chunk} ->
+        Conn.chunk(conn, chunk)
+        proxy_server_sent_event(conn, status_code)
+
+      %AsyncEnd{} ->
+        conn
     end
   end
 
-  def channel do
-    quote do
-      use Phoenix.Channel
-    end
+  @spec put_headers(Conn.t(), headers()) :: conn :: Conn.t()
+  defp put_headers(conn, headers) do
+    Enum.reduce(headers, conn, fn {key, value}, acc ->
+      Conn.put_resp_header(acc, key, value)
+    end)
   end
 
-  def controller do
-    quote do
-      use Phoenix.Controller,
-        formats: [:html, :json],
-        layouts: [html: AlpacaProxyWeb.Layouts]
+  @spec fetch!(conn :: Conn.t(), stream :: false) :: response :: Response.t()
+  @spec fetch!(conn :: Conn.t(), stream :: true) :: async_response :: AsyncResponse.t()
+  defp fetch!(%Conn{} = conn, stream) do
+    alpaca_api_env =
+      :alpaca_proxy
+      |> Application.fetch_env!(AlpacaProxyWeb)
+      |> Map.new()
 
-      import Plug.Conn
-      import AlpacaProxyWeb.Gettext
+    token = Base.encode64("#{alpaca_api_env.key}:#{alpaca_api_env.secret}")
 
-      unquote(verified_routes())
-    end
+    headers =
+      conn.req_headers
+      |> Enum.reject(&(elem(&1, 0) in ~w[cookie host]))
+      |> then(&[{"Authorization", "Basic #{token}"} | &1])
+
+    alpaca_api_env
+    |> Map.take(~w[host port scheme]a)
+    |> then(&Map.merge(%URI{path: conn.request_path, query: conn.query_string}, &1))
+    |> URI.to_string()
+    |> fetch!(conn.method, Map.to_list(conn.body_params), headers, stream)
   end
 
-  def live_view do
-    quote do
-      use Phoenix.LiveView,
-        layout: {AlpacaProxyWeb.Layouts, :app}
-
-      unquote(html_helpers())
-    end
+  @spec fetch!(String.t(), method :: String.t(), body_params(), headers(), stream :: true) ::
+          async_response :: AsyncResponse.t()
+  defp fetch!(url, "GET", [], headers, true) do
+    opts = [recv_timeout: :infinity, stream_to: self()]
+    HTTPoison.get!(url, headers, opts)
   end
 
-  def live_component do
-    quote do
-      use Phoenix.LiveComponent
-
-      unquote(html_helpers())
-    end
+  @spec fetch!(String.t(), method :: String.t(), body_params(), headers(), stream :: false) ::
+          response :: Response.t()
+  defp fetch!(url, "GET", [], headers, false) do
+    HTTPoison.get!(url, headers)
   end
 
-  def html do
-    quote do
-      use Phoenix.Component
-
-      # Import convenience functions from controllers
-      import Phoenix.Controller,
-        only: [get_csrf_token: 0, view_module: 1, view_template: 1]
-
-      # Include general helpers for rendering HTML
-      unquote(html_helpers())
-    end
-  end
-
-  defp html_helpers do
-    quote do
-      # HTML escaping functionality
-      import Phoenix.HTML
-      # Core UI components and translation
-      import AlpacaProxyWeb.CoreComponents
-      import AlpacaProxyWeb.Gettext
-
-      # Shortcut for generating JS commands
-      alias Phoenix.LiveView.JS
-
-      # Routes generation with the ~p sigil
-      unquote(verified_routes())
-    end
-  end
-
-  def verified_routes do
-    quote do
-      use Phoenix.VerifiedRoutes,
-        endpoint: AlpacaProxyWeb.Endpoint,
-        router: AlpacaProxyWeb.Router,
-        statics: AlpacaProxyWeb.static_paths()
-    end
-  end
-
-  @doc """
-  When used, dispatch to the appropriate controller/view/etc.
-  """
-  defmacro __using__(which) when is_atom(which) do
-    apply(__MODULE__, which, [])
+  defp fetch!(url, "POST", body_params, headers, false) do
+    HTTPoison.post!(url, {:form, body_params}, headers)
   end
 end
