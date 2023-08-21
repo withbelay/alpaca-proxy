@@ -15,6 +15,8 @@ defmodule AlpacaProxy.Application do
 
   @impl Application
   def start(_type, _args) do
+    LoggerBackends.add(Sentry.LoggerBackend)
+
     children = [
       {Phoenix.PubSub, name: AlpacaProxy.PubSub},
       Endpoint

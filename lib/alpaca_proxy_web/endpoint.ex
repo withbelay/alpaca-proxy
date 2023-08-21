@@ -1,4 +1,6 @@
+# credo:disable-for-this-file Credo.Check.Refactor.ModuleDependencies
 defmodule AlpacaProxyWeb.Endpoint do
+  use Sentry.PlugCapture
   use Phoenix.Endpoint, otp_app: :alpaca_proxy
 
   @session_options [
@@ -17,6 +19,8 @@ defmodule AlpacaProxyWeb.Endpoint do
     json_decoder: Phoenix.json_library(),
     parsers: [:urlencoded, :multipart, :json],
     pass: ["*/*"]
+
+  plug Sentry.PlugContext
 
   plug Plug.MethodOverride
   plug Plug.Head
