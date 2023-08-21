@@ -1,0 +1,68 @@
+name: CI/CD
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main, staging]
+  pull_request:
+    branches: [main, staging]
+
+env:
+  BRANCH_NAME: ${{ github.head_ref || github.ref_name }}
+  GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+  MIX_ENV: test
+  SECRET_KEY_BASE: MB78wAETHC6XleQCj4cElgY/xRO/ekRX4jn9F072M7ryI7Wiiatzrq3Md66y0i+0
+
+jobs:
+  build:
+    name: Build and test
+    runs-on: ubuntu-latest-m
+    steps:
+      - uses: actions/checkout@v3
+      - name: Determine the elixir version
+        run: echo "ELIXIR_VERSION=$(grep -h elixir .tool-versions | awk '{ print $2 }' | awk -F - '{print $1}')" >> $GITHUB_ENV
+
+      - name: Determine the otp version
+        run: echo "OTP_VERSION=$(grep -h erlang .tool-versions | awk '{ print $2 }')" >> $GITHUB_ENV
+
+      - name: Setup Elixir and Erlang versions
+        uses: erlef/setup-beam@v1
+        with:
+          elixir-version: ${{ env.ELIXIR_VERSION }}
+          otp-version: ${{ env.OTP_VERSION }}
+      - name: Cache Mix
+        uses: actions/cache@v3
+        with:
+          path: |
+            deps
+            _build
+          key: ${{ runner.os }}-mix-${{ env.elixir }}-${{ env.otp }}-${{ hashFiles('**/mix.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-mix-${{ env.elixir }}-${{ env.otp }}-
+      - name: Install mix dependencies
+        run: mix deps.get
+      - name: Check formatting
+        run: mix format --check-formatted
+      - name: Check warnings
+        run: mix compile --warnings-as-errors
+      - name: Run tests w/ coverage report
+        run: mix coveralls.github
+      - uses: reviewdog/action-setup@v1
+        with:
+          reviewdog_version: latest
+      - name: Run reviewdog with credo
+        env:
+          REVIEWDOG_GITHUB_API_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          mix credo --format=flycheck | reviewdog -efm="%f:%l:%c: %t: %m" -efm="%f:%l: %t: %m" -name="Credo Report" -reporter="github-pr-review" -diff="git diff FETCH_HEAD" -level="warning"
+
+  deploy:
+    if: github.ref_name == 'main' || github.ref_name == 'staging'
+    uses: "withbelay/fly-deploy-action/.github/workflows/deploy.yml@v2.0.2"
+    needs: build
+    with:
+      app: alpaca-proxy
+    secrets:
+      OP_SERVICE_ACCOUNT_TOKEN: ${{ secrets.OP_SERVICE_ACCOUNT_TOKEN }}
+      FLY_API_TOKEN: ${{ secrets.FLY_AUTH_TOKEN }}
+      SLACK_DEVELOPMENT_WEBHOOK_URL: ${{ secrets.SLACK_DEVELOPMENT_WEBHOOK_URL }}
