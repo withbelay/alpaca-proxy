@@ -30,7 +30,30 @@ defmodule AlpacaProxy.MixProject do
       elixirc_paths: elixirc_paths(Mix.env()),
       start_permanent: Mix.env() == :prod,
       test_coverage: [tool: ExCoveralls],
-      version: "1.0.0-rc.0"
+      version: "1.0.0-rc.0",
+      aliases: aliases(),
+      preferred_cli_env: preferred_cli_envs()
+    ]
+  end
+
+  defp aliases do
+    [
+      compile_with_sentry: ["compile deps.compile sentry --force"],
+      "test.int": ["test --include integration"],
+      "test.ext": ["test --include external"],
+      "test.all": ["test --include external --include integration"]
+    ]
+  end
+
+  defp preferred_cli_envs() do
+    [
+      "coveralls.github": :test,
+      coveralls: :test,
+      dialyzer: :test,
+      test: :test,
+      "test.all": :test,
+      "test.int": :test,
+      "test.ext": :test
     ]
   end
 
