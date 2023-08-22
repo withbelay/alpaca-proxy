@@ -1,4 +1,3 @@
-# credo:disable-for-this-file Credo.Check.Refactor.ModuleDependencies
 defmodule AlpacaProxyWeb do
   @moduledoc """
   Core proxy functions to work with REST and Server Sent Event requests.
@@ -79,8 +78,8 @@ defmodule AlpacaProxyWeb do
 
     headers =
       conn.req_headers
-      |> Enum.reject(&(elem(&1, 0) in ~w[cookie host]))
-      |> then(&[{"Authorization", "Basic #{token}"} | &1])
+      |> Enum.reject(&(elem(&1, 0) in ~w[authorization cookie host]))
+      |> then(&[{"authorization", "Basic #{token}"} | &1])
 
     alpaca_api_env
     |> Map.take(~w[host port scheme]a)

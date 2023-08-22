@@ -1,15 +1,22 @@
 defmodule AlpacaProxyWeb.V1Test do
   use ExUnit.Case, async: true
 
+  alias ExUnit.CaptureIO
   alias Plug.Conn
 
   require Phoenix.ConnTest, as: ConnTest
 
+  @test_auth_token fn -> Mix.Task.run("ap.gen.token", ["test-token"]) end
+                   |> CaptureIO.capture_io()
+                   |> then(&"Basic #{&1}")
+
   setup _tags do
+    unauthorized_conn = ConnTest.build_conn()
+    conn = Conn.put_req_header(unauthorized_conn, "authorization", @test_auth_token)
     proxy_env = Application.fetch_env!(:alpaca_proxy, AlpacaProxyWeb)
     port = proxy_env[:port]
     endpoint = "#{proxy_env[:host]}:#{port}"
-    {:ok, bypass: Bypass.open(port: port), conn: ConnTest.build_conn(), endpoint: endpoint}
+    {:ok, bypass: Bypass.open(port: port), conn: conn, endpoint: endpoint}
   end
 
   id = "sample"
@@ -18,6 +25,27 @@ defmodule AlpacaProxyWeb.V1Test do
   @error %{"error" => "raison"}
   @error_json Jason.encode!(@error)
   @json Jason.encode!(@data)
+
+  describe "unauthorized connection" do
+    test "without headers" do
+      unauthorized_conn = ConnTest.build_conn()
+      conn = ConnTest.get(unauthorized_conn, "/v1/accounts")
+      assert ConnTest.response(conn, 401) == "Unauthorized"
+    end
+
+    test "with fake headers" do
+      fake = Base.encode64("fake")
+      unauthorized_conn = ConnTest.build_conn()
+
+      conn =
+        unauthorized_conn
+        |> Conn.put_req_header("fake", "fake")
+        |> Conn.put_req_header("authorization", "Basic #{fake}")
+        |> ConnTest.get("/v1/accounts")
+
+      assert ConnTest.response(conn, 401) == "Unauthorized"
+    end
+  end
 
   for path <- ~w[/v1/accounts /v1/accounts/#{id} /v1/trading/accounts/#{id}/positions] do
     describe "GET #{path}" do
