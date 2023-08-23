@@ -23,7 +23,7 @@ defmodule AlpacaProxyWeb.Router do
     get "/trading/accounts/:account_id/positions", V1Controller, :rest
   end
 
-  @spec call(Conn.t(), any()) :: Conn.t()
+  @spec verify_api_authorization_token(Conn.t(), any()) :: Conn.t()
   defp verify_api_authorization_token(%Conn{req_headers: headers} = conn, _opts) do
     if Enum.any?(headers, &header_authorized?/1) do
       conn
