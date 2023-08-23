@@ -30,7 +30,6 @@ defmodule Mix.Tasks.Ap.Gen.Token do
 
     AlpacaProxyWeb.Endpoint
     |> Phoenix.Token.sign(salt, app_id)
-    |> Base.encode64()
     |> tap(fn token -> IO.write(token) end)
   end
 end

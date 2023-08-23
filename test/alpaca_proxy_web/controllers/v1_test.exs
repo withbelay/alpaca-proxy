@@ -2,23 +2,19 @@ defmodule AlpacaProxyWeb.V1Test do
   use ExUnit.Case, async: true
 
   alias ExUnit.CaptureIO
+  alias Plug.BasicAuth
   alias Plug.Conn
 
   require Phoenix.ConnTest, as: ConnTest
 
-  @test_auth_token CaptureIO.capture_io(fn -> Mix.Task.run("ap.gen.token", ["belay-api-test"]) end)
+  @app_id "belay-api-test"
+  @test_auth_token CaptureIO.capture_io(fn -> Mix.Task.run("ap.gen.token", [@app_id]) end)
 
   setup _tags do
-    unauthorized_conn = ConnTest.build_conn()
-
-    conn =
-      Conn.put_req_header(
-        unauthorized_conn,
-        "authorization",
-        "Basic belay-api-test:" <> @test_auth_token
-      )
-
     proxy_env = Application.fetch_env!(:alpaca_proxy, AlpacaProxyWeb)
+    unauthorized_conn = ConnTest.build_conn()
+    authorization = BasicAuth.encode_basic_auth(@app_id, @test_auth_token)
+    conn = Conn.put_req_header(unauthorized_conn, "authorization", authorization)
     port = proxy_env[:port]
     bypass = Bypass.open(port: String.to_integer(port))
     endpoint = proxy_env[:host] <> ":" <> port
@@ -39,14 +35,21 @@ defmodule AlpacaProxyWeb.V1Test do
       assert ConnTest.response(conn, 401) == "Unauthorized"
     end
 
-    test "with fake headers" do
-      fake = Base.encode64("fake")
-      unauthorized_conn = ConnTest.build_conn()
+    test "with fake header" do
+      conn =
+        ConnTest.build_conn()
+        |> Conn.put_req_header("authorization", "Basic fake")
+        |> ConnTest.get("/v1/accounts")
+
+      assert ConnTest.response(conn, 401) == "Unauthorized"
+    end
+
+    test "with wrong app_id" do
+      authorization = BasicAuth.encode_basic_auth("fake", @test_auth_token)
 
       conn =
-        unauthorized_conn
-        |> Conn.put_req_header("fake", "fake")
-        |> Conn.put_req_header("authorization", "Basic " <> fake)
+        ConnTest.build_conn()
+        |> Conn.put_req_header("authorization", authorization)
         |> ConnTest.get("/v1/accounts")
 
       assert ConnTest.response(conn, 401) == "Unauthorized"

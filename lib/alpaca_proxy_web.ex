@@ -9,6 +9,7 @@ defmodule AlpacaProxyWeb do
   alias HTTPoison.AsyncResponse
   alias HTTPoison.AsyncStatus
   alias HTTPoison.Response
+  alias Plug.BasicAuth
   alias Plug.Conn
 
   @type body_params :: Conn.params() | []
@@ -93,12 +94,11 @@ defmodule AlpacaProxyWeb do
       scheme: alpaca_api_env[:scheme]
     }
 
-    token = Base.encode64(alpaca_api_env.key <> ":" <> alpaca_api_env.secret)
-    token_header = {"authorization", "Basic " <> token}
+    authorization = BasicAuth.encode_basic_auth(alpaca_api_env.key, alpaca_api_env.secret)
     uri = struct(URI, path: conn.request_path, query: conn.query_string)
 
     headers =
-      [token_header] ++
+      [{"authorization", authorization}] ++
         Enum.reject(conn.req_headers, fn tuple ->
           elem(tuple, 0) in ["authorization", "cookie", "host"]
         end)

@@ -6,6 +6,7 @@ defmodule AlpacaProxyWeb.Router do
 
   alias AlpacaProxyWeb.Endpoint
   alias Phoenix.Token
+  alias Plug.BasicAuth
   alias Plug.Conn
 
   pipeline :api do
@@ -51,34 +52,21 @@ defmodule AlpacaProxyWeb.Router do
 
   @spec verify_api_authorization_token(Conn.t(), any()) :: Conn.t()
   defp verify_api_authorization_token(conn, _opts) when is_struct(conn, Conn) do
-    if Enum.any?(conn.req_headers, fn header -> header_authorized?(header) end) do
+    with {app_id, token} <- BasicAuth.parse_basic_auth(conn),
+         true <- token_authorized?(app_id, token) do
       conn
     else
-      conn
-      |> Conn.resp(401, "Unauthorized")
-      |> Conn.halt()
+      _error ->
+        conn
+        |> Conn.resp(401, "Unauthorized")
+        |> Conn.halt()
     end
   end
 
-  @spec header_authorized?({header_name :: String.t(), header_value :: String.t()}) :: boolean()
-  defp header_authorized?(tuple)
-       when is_tuple(tuple) and tuple_size(tuple) == 2 and elem(tuple, 0) == "authorization" do
-    tuple
-    |> elem(1)
-    |> String.trim_leading("Basic ")
-    |> String.split(":")
-    |> token_authorized?()
-  end
-
-  defp header_authorized?(tuple) when is_tuple(tuple) and tuple_size(tuple) == 2, do: false
-
-  @spec token_authorized?([String.t()]) :: boolean()
-  defp token_authorized?(list) when is_list(list) do
-    app_id = List.first(list)
-    token = List.last(list)
+  @spec token_authorized?(String.t(), String.t()) :: boolean()
+  defp token_authorized?(app_id, token) do
     salt = Application.fetch_env!(:alpaca_proxy, AlpacaProxyWeb)[:salt]
-    decoded_token = Base.decode64!(token)
-    {result, data} = Token.verify(Endpoint, salt, decoded_token)
+    {result, data} = Token.verify(Endpoint, salt, token)
     result == :ok and data == app_id
   end
 end
