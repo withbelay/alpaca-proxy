@@ -4,7 +4,7 @@ import Config
 config :alpaca_proxy, AlpacaProxyWeb,
   host: "broker-api.sandbox.alpaca.markets",
   key: "CK3M9F1VI3FESOT1TS2M",
-  port: 80,
+  port: "80",
   scheme: "https",
   secret: "BhNnaexBg3eCo4KlvIFlGDzzOJS88H7zxLkiVr4S"
 

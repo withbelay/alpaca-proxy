@@ -1,6 +1,6 @@
 import Config
 
-config :alpaca_proxy, AlpacaProxyWeb, env: config_env()
+config :alpaca_proxy, AlpacaProxyWeb, salt: "alpaca-proxy-" <> Atom.to_string(config_env())
 
 config :alpaca_proxy, AlpacaProxyWeb.Endpoint,
   pubsub_server: AlpacaProxy.PubSub,

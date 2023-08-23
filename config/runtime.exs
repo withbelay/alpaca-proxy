@@ -14,12 +14,17 @@ end
 if config_env() == :prod do
   api_port = System.get_env("ALPACA_PROXY_API_PORT", "80")
 
+  blacklisted_sweep_account_ids =
+    System.get_env("ALPACA_PROXY_API_BLACKLISTED_SWEEP_ACCOUNT_IDS", "")
+
   config :alpaca_proxy, AlpacaProxyWeb,
+    blacklisted_sweep_account_ids: String.split(blacklisted_sweep_account_ids, ","),
     host: System.fetch_env!("ALPACA_PROXY_API_HOST"),
     key: System.fetch_env!("ALPACA_PROXY_API_KEY"),
     port: String.to_integer(api_port),
     scheme: System.get_env("ALPACA_PROXY_API_SCHEME", "https"),
-    secret: System.fetch_env!("ALPACA_PROXY_API_SECRET")
+    secret: System.fetch_env!("ALPACA_PROXY_API_SECRET"),
+    sweep_account_id: System.fetch_env!("ALPACA_PROXY_API_SWEEP_ACCOUNT_ID")
 
   force_ssl = System.get_env("ALPACA_PROXY_FORCE_SSL", "false")
   host = System.get_env("ALPACA_PROXY_HOST", "localhost")

@@ -9,8 +9,9 @@ defmodule AlpacaProxyWeb.Router do
   alias Plug.Conn
 
   pipeline :api do
-    plug :accepts, ~w[json]
+    plug :accepts, ["json"]
     plug :verify_api_authorization_token
+    plug :validate_request
   end
 
   scope "/v1", AlpacaProxyWeb do
@@ -23,9 +24,34 @@ defmodule AlpacaProxyWeb.Router do
     get "/trading/accounts/:account_id/positions", V1Controller, :rest
   end
 
+  @spec validate_request(Conn.t(), any()) :: Conn.t()
+  defp validate_request(conn, _opts) do
+    case conn.request_path do
+      "/v1/journals" -> validate_journals(conn)
+      _request_path -> conn
+    end
+  end
+
+  @spec validate_journals(Conn.t()) :: Conn.t()
+  defp validate_journals(conn) do
+    alpaca_api_env = Application.fetch_env!(:alpaca_proxy, AlpacaProxyWeb)
+    blacklisted_sweep_account_ids = alpaca_api_env[:blacklisted_sweep_account_ids]
+    sweep_account_id = alpaca_api_env[:sweep_account_id]
+    account_ids = [conn.body_params["from_account"], conn.body_params["to_account"]]
+
+    if Enum.any?(account_ids, fn account_id -> account_id in blacklisted_sweep_account_ids end) or
+         sweep_account_id not in account_ids do
+      conn
+      |> Conn.resp(403, "Forbidden")
+      |> Conn.halt()
+    else
+      conn
+    end
+  end
+
   @spec verify_api_authorization_token(Conn.t(), any()) :: Conn.t()
-  defp verify_api_authorization_token(%Conn{req_headers: headers} = conn, _opts) do
-    if Enum.any?(headers, &header_authorized?/1) do
+  defp verify_api_authorization_token(conn, _opts) when is_struct(conn, Conn) do
+    if Enum.any?(conn.req_headers, fn header -> header_authorized?(header) end) do
       conn
     else
       conn
@@ -35,19 +61,24 @@ defmodule AlpacaProxyWeb.Router do
   end
 
   @spec header_authorized?({header_name :: String.t(), header_value :: String.t()}) :: boolean()
-  defp header_authorized?({"authorization", "Basic " <> token}), do: token_authorized?(token)
-  defp header_authorized?({_name, _value}), do: false
+  defp header_authorized?(tuple)
+       when is_tuple(tuple) and tuple_size(tuple) == 2 and elem(tuple, 0) == "authorization" do
+    tuple
+    |> elem(1)
+    |> String.trim_leading("Basic ")
+    |> String.split(":")
+    |> token_authorized?()
+  end
 
-  @spec token_authorized?(String.t()) :: boolean()
-  defp token_authorized?(token) do
-    env = Application.fetch_env!(:alpaca_proxy, AlpacaProxyWeb)[:env]
+  defp header_authorized?(tuple) when is_tuple(tuple) and tuple_size(tuple) == 2, do: false
 
-    token
-    |> Base.decode64!()
-    |> then(&Token.verify(Endpoint, "alpaca-proxy-#{env}", &1))
-    |> then(fn
-      {:ok, _app_id} -> true
-      {:error, _raison} -> false
-    end)
+  @spec token_authorized?([String.t()]) :: boolean()
+  defp token_authorized?(list) when is_list(list) do
+    app_id = List.first(list)
+    token = List.last(list)
+    salt = Application.fetch_env!(:alpaca_proxy, AlpacaProxyWeb)[:salt]
+    decoded_token = Base.decode64!(token)
+    {result, data} = Token.verify(Endpoint, salt, decoded_token)
+    result == :ok and data == app_id
   end
 end

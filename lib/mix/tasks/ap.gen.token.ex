@@ -23,13 +23,14 @@ defmodule Mix.Tasks.Ap.Gen.Token do
 
   @impl Mix.Task
   @spec run([String.t()]) :: String.t()
-  def run([app_id]) do
-    env = Application.fetch_env!(:alpaca_proxy, AlpacaProxyWeb)[:env]
+  def run(list) when is_list(list) do
+    app_id = List.first(list)
+    salt = Application.fetch_env!(:alpaca_proxy, AlpacaProxyWeb)[:salt]
     {:ok, _apps} = Application.ensure_all_started(:alpaca_proxy)
 
     AlpacaProxyWeb.Endpoint
-    |> Phoenix.Token.sign("alpaca-proxy-#{env}", app_id)
+    |> Phoenix.Token.sign(salt, app_id)
     |> Base.encode64()
-    |> tap(&IO.write/1)
+    |> tap(fn token -> IO.write(token) end)
   end
 end

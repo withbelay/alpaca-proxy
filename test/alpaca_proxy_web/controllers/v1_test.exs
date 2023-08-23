@@ -6,17 +6,23 @@ defmodule AlpacaProxyWeb.V1Test do
 
   require Phoenix.ConnTest, as: ConnTest
 
-  @test_auth_token fn -> Mix.Task.run("ap.gen.token", ["test-token"]) end
-                   |> CaptureIO.capture_io()
-                   |> then(&"Basic #{&1}")
+  @test_auth_token CaptureIO.capture_io(fn -> Mix.Task.run("ap.gen.token", ["belay-api-test"]) end)
 
   setup _tags do
     unauthorized_conn = ConnTest.build_conn()
-    conn = Conn.put_req_header(unauthorized_conn, "authorization", @test_auth_token)
+
+    conn =
+      Conn.put_req_header(
+        unauthorized_conn,
+        "authorization",
+        "Basic belay-api-test:" <> @test_auth_token
+      )
+
     proxy_env = Application.fetch_env!(:alpaca_proxy, AlpacaProxyWeb)
     port = proxy_env[:port]
-    endpoint = "#{proxy_env[:host]}:#{port}"
-    {:ok, bypass: Bypass.open(port: port), conn: conn, endpoint: endpoint}
+    bypass = Bypass.open(port: String.to_integer(port))
+    endpoint = proxy_env[:host] <> ":" <> port
+    {:ok, bypass: bypass, conn: conn, endpoint: endpoint}
   end
 
   id = "sample"
@@ -40,40 +46,97 @@ defmodule AlpacaProxyWeb.V1Test do
       conn =
         unauthorized_conn
         |> Conn.put_req_header("fake", "fake")
-        |> Conn.put_req_header("authorization", "Basic #{fake}")
+        |> Conn.put_req_header("authorization", "Basic " <> fake)
         |> ConnTest.get("/v1/accounts")
 
       assert ConnTest.response(conn, 401) == "Unauthorized"
     end
   end
 
-  for path <- ~w[/v1/accounts /v1/accounts/#{id} /v1/trading/accounts/#{id}/positions] do
-    describe "GET #{path}" do
+  describe "forbidden request" do
+    test "POST /v1/journals without required account_id", %{conn: conn} do
+      body = %{
+        "from_account" => "unknown-account-id",
+        "to_account" => "another-unknown-account-id"
+      }
+
+      conn = ConnTest.post(conn, "/v1/journals", body)
+      assert ConnTest.response(conn, 403) == "Forbidden"
+    end
+
+    test "POST /v1/journals with blacklisted from account_id", %{conn: conn} do
+      proxy_env = Application.fetch_env!(:alpaca_proxy, AlpacaProxyWeb)
+
+      body = %{
+        "from_account" => List.first(proxy_env[:blacklisted_sweep_account_ids]),
+        "to_account" => proxy_env[:sweep_account_id]
+      }
+
+      conn = ConnTest.post(conn, "/v1/journals", body)
+      assert ConnTest.response(conn, 403) == "Forbidden"
+    end
+
+    test "POST /v1/journals with blacklisted to account_id", %{conn: conn} do
+      proxy_env = Application.fetch_env!(:alpaca_proxy, AlpacaProxyWeb)
+
+      body = %{
+        "from_account" => proxy_env[:sweep_account_id],
+        "to_account" => List.first(proxy_env[:blacklisted_sweep_account_ids])
+      }
+
+      conn = ConnTest.post(conn, "/v1/journals", body)
+      assert ConnTest.response(conn, 403) == "Forbidden"
+    end
+  end
+
+  for path <- [
+        "/v1/accounts",
+        "/v1/accounts/" <> id,
+        "/v1/trading/accounts/" <> id <> "/positions"
+      ] do
+    describe "GET " <> path do
       test "returns 200", %{bypass: bypass, conn: conn} do
-        Bypass.expect_once(bypass, "GET", unquote(path), &json_response(&1, 200, @json))
+        Bypass.expect_once(bypass, "GET", unquote(path), fn conn ->
+          json_response(conn, 200, @json)
+        end)
+
         conn = ConnTest.get(conn, unquote(path))
         assert ConnTest.json_response(conn, 200) == @data
       end
 
       test "returns 500", %{bypass: bypass, conn: conn} do
-        Bypass.expect_once(bypass, "GET", unquote(path), &json_response(&1, 500, @error_json))
+        Bypass.expect_once(bypass, "GET", unquote(path), fn conn ->
+          json_response(conn, 500, @error_json)
+        end)
+
         conn = ConnTest.get(conn, unquote(path))
         assert ConnTest.json_response(conn, 500) == @error
       end
     end
   end
 
-  for path <- ~w[/v1/journals] do
-    describe "POST #{path}" do
+  @post_body %{
+    "from_account" => "fake-id",
+    "to_account" => "another-fake-id"
+  }
+
+  for path <- ["/v1/journals"] do
+    describe "POST " <> path do
       test "returns 200", %{bypass: bypass, conn: conn} do
-        Bypass.expect_once(bypass, "POST", unquote(path), &json_response(&1, 200, @json))
-        conn = ConnTest.post(conn, unquote(path), %{body: "good"})
+        Bypass.expect_once(bypass, "POST", unquote(path), fn conn ->
+          json_response(conn, 200, @json)
+        end)
+
+        conn = ConnTest.post(conn, unquote(path), @post_body)
         assert ConnTest.json_response(conn, 200) == @data
       end
 
       test "returns 500", %{bypass: bypass, conn: conn} do
-        Bypass.expect_once(bypass, "POST", unquote(path), &json_response(&1, 500, @error_json))
-        conn = ConnTest.post(conn, unquote(path), %{body: "wrong"})
+        Bypass.expect_once(bypass, "POST", unquote(path), fn conn ->
+          json_response(conn, 500, @error_json)
+        end)
+
+        conn = ConnTest.post(conn, unquote(path), @post_body)
         assert ConnTest.json_response(conn, 500) == @error
       end
     end
@@ -85,13 +148,15 @@ defmodule AlpacaProxyWeb.V1Test do
     |> Conn.resp(status_code, json)
   end
 
-  @error_messages ~w[something went wrong]
-  @messages ~w[hello world]
+  @error_messages ["something", "went", "wrong"]
+  @messages ["hello", "world"]
 
-  for path <- ~w[/v1/events/journals/status /v1/events/trades] do
-    describe "GET #{path}" do
+  for path <- ["/v1/events/journals/status", "/v1/events/trades"] do
+    describe "GET " <> path do
       test "returns 200", %{bypass: bypass, endpoint: endpoint} do
-        Bypass.expect_once(bypass, "GET", unquote(path), &sse_response(&1, 200, @messages))
+        Bypass.expect_once(bypass, "GET", unquote(path), fn conn ->
+          sse_response(conn, 200, @messages)
+        end)
 
         endpoint
         |> Path.join(unquote(path))
@@ -101,7 +166,9 @@ defmodule AlpacaProxyWeb.V1Test do
       end
 
       test "returns 500", %{bypass: bypass, endpoint: endpoint} do
-        Bypass.expect_once(bypass, "GET", unquote(path), &sse_response(&1, 500, @error_messages))
+        Bypass.expect_once(bypass, "GET", unquote(path), fn conn ->
+          sse_response(conn, 500, @error_messages)
+        end)
 
         endpoint
         |> Path.join(unquote(path))
@@ -128,10 +195,8 @@ defmodule AlpacaProxyWeb.V1Test do
     conn
     |> Conn.put_resp_header("content-type", "text/event-stream")
     |> Conn.send_chunked(status_code)
-    |> then(fn conn ->
-      Enum.reduce(messages, conn, fn message, conn ->
-        tap(conn, &Conn.chunk(&1, message))
-      end)
+    |> tap(fn conn ->
+      Enum.each(messages, fn message -> Conn.chunk(conn, message) end)
     end)
   end
 end

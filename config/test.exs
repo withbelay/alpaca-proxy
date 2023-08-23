@@ -2,11 +2,13 @@ import Config
 
 # A test configuration to work with bypass dependency
 config :alpaca_proxy, AlpacaProxyWeb,
+  blacklisted_sweep_account_ids: ["fake-blacklisted-id"],
   host: "localhost",
   key: "key",
-  port: 4001,
+  port: "4001",
   scheme: "http",
-  secret: "secret"
+  secret: "secret",
+  sweep_account_id: "fake-id"
 
 config :alpaca_proxy, AlpacaProxyWeb.Endpoint,
   http: [ip: {127, 0, 0, 1}, port: 4002],

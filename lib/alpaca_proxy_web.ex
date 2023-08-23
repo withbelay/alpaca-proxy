@@ -16,47 +16,60 @@ defmodule AlpacaProxyWeb do
 
   @doc "Retrieves data from conn, passes them to requests and applies response data to current connection."
   @spec rest(Conn.t()) :: conn :: Conn.t()
-  def rest(%Conn{} = conn) do
-    conn
-    |> fetch!(false)
-    |> then(&copy_data(conn, &1))
+  def rest(conn) when is_struct(conn, Conn) do
+    response = fetch!(conn, false)
+    copy_data(conn, response)
   end
 
   @spec copy_data(Conn.t(), response :: Response.t()) :: conn :: Conn.t()
-  defp copy_data(conn, %Response{body: body, headers: headers, status_code: code}) do
-    headers
+  defp copy_data(conn, response) when is_struct(response, Response) do
+    response
+    |> Map.fetch!(:headers)
     |> Enum.reduce(conn, fn {key, value}, conn ->
       Conn.put_resp_header(conn, key, value)
     end)
-    |> Conn.send_resp(code, body)
+    |> Conn.send_resp(response.status_code, response.body)
   end
 
   @doc "Retrieves data from conn, passes them to requests and applies synchronous response data to current connection."
   @spec server_sent_event(Conn.t()) :: conn :: Conn.t()
   def server_sent_event(conn) do
-    %AsyncResponse{} = fetch!(conn, true)
+    fetch!(conn, true)
     proxy_server_sent_event(conn)
   end
 
-  @spec proxy_server_sent_event(Conn.t()) :: conn :: Conn.t()
-  defp proxy_server_sent_event(%Conn{} = conn, status_code \\ nil) do
+  @spec proxy_server_sent_event(Conn.t(), nil | non_neg_integer()) :: conn :: Conn.t()
+  defp proxy_server_sent_event(conn, status_code \\ nil) when is_struct(conn, Conn) do
     receive do
-      %AsyncStatus{code: status_code} ->
-        proxy_server_sent_event(conn, status_code)
-
-      %AsyncHeaders{headers: headers} ->
-        conn
-        |> put_headers(headers)
-        |> Conn.send_chunked(status_code)
-        |> proxy_server_sent_event(status_code)
-
-      %AsyncChunk{chunk: chunk} ->
-        Conn.chunk(conn, chunk)
-        proxy_server_sent_event(conn, status_code)
-
-      %AsyncEnd{} ->
-        conn
+      message -> handle_message(conn, message, status_code)
     end
+  end
+
+  @spec handle_message(Conn.t(), AsyncStatus.t(), nil | non_neg_integer()) :: conn :: Conn.t()
+  defp handle_message(conn, async_status, nil)
+       when is_struct(async_status, AsyncStatus) do
+    proxy_server_sent_event(conn, async_status.code)
+  end
+
+  @spec handle_message(Conn.t(), AsyncHeaders.t(), nil | non_neg_integer()) :: conn :: Conn.t()
+  defp handle_message(conn, async_headers, status_code)
+       when is_struct(async_headers, AsyncHeaders) do
+    conn
+    |> put_headers(async_headers.headers)
+    |> Conn.send_chunked(status_code)
+    |> proxy_server_sent_event(status_code)
+  end
+
+  @spec handle_message(Conn.t(), AsyncChunk.t(), nil | non_neg_integer()) :: conn :: Conn.t()
+  defp handle_message(conn, async_chunk, status_code)
+       when is_struct(async_chunk, AsyncChunk) do
+    Conn.chunk(conn, async_chunk.chunk)
+    proxy_server_sent_event(conn, status_code)
+  end
+
+  @spec handle_message(Conn.t(), AsyncEnd.t(), nil | non_neg_integer()) :: conn :: Conn.t()
+  defp handle_message(conn, async_end, _status_code) when is_struct(async_end, AsyncEnd) do
+    conn
   end
 
   @spec put_headers(Conn.t(), headers()) :: conn :: Conn.t()
@@ -68,22 +81,30 @@ defmodule AlpacaProxyWeb do
 
   @spec fetch!(conn :: Conn.t(), stream :: false) :: response :: Response.t()
   @spec fetch!(conn :: Conn.t(), stream :: true) :: async_response :: AsyncResponse.t()
-  defp fetch!(%Conn{} = conn, stream) do
+  defp fetch!(conn, stream) when is_struct(conn, Conn) do
     alpaca_api_env =
       :alpaca_proxy
       |> Application.fetch_env!(AlpacaProxyWeb)
       |> Map.new()
 
-    token = Base.encode64("#{alpaca_api_env.key}:#{alpaca_api_env.secret}")
+    map = %{
+      host: alpaca_api_env[:host],
+      port: String.to_integer(alpaca_api_env[:port]),
+      scheme: alpaca_api_env[:scheme]
+    }
+
+    token = Base.encode64(alpaca_api_env.key <> ":" <> alpaca_api_env.secret)
+    token_header = {"authorization", "Basic " <> token}
+    uri = struct(URI, path: conn.request_path, query: conn.query_string)
 
     headers =
-      conn.req_headers
-      |> Enum.reject(&(elem(&1, 0) in ~w[authorization cookie host]))
-      |> then(&[{"authorization", "Basic #{token}"} | &1])
+      [token_header] ++
+        Enum.reject(conn.req_headers, fn tuple ->
+          elem(tuple, 0) in ["authorization", "cookie", "host"]
+        end)
 
-    alpaca_api_env
-    |> Map.take(~w[host port scheme]a)
-    |> then(&Map.merge(%URI{path: conn.request_path, query: conn.query_string}, &1))
+    uri
+    |> Map.merge(map)
     |> URI.to_string()
     |> fetch!(conn.method, Map.to_list(conn.body_params), headers, stream)
   end
