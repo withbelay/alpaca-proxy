@@ -15,11 +15,14 @@ if config_env() == :prod do
   api_port = System.get_env("ALPACA_PROXY_API_PORT", "80")
 
   config :alpaca_proxy, AlpacaProxyWeb,
-    host: System.fetch_env!("ALPACA_PROXY_API_HOST"),
-    key: System.fetch_env!("ALPACA_PROXY_API_KEY"),
-    port: String.to_integer(api_port),
-    scheme: System.get_env("ALPACA_PROXY_API_SCHEME", "https"),
-    secret: System.fetch_env!("ALPACA_PROXY_API_SECRET")
+    api: [
+      host: System.fetch_env!("ALPACA_PROXY_API_HOST"),
+      key: System.fetch_env!("ALPACA_PROXY_API_KEY"),
+      port: String.to_integer(api_port),
+      scheme: System.get_env("ALPACA_PROXY_API_SCHEME", "https"),
+      secret: System.fetch_env!("ALPACA_PROXY_API_SECRET")
+    ],
+    secret: System.fetch_env!("ALPACA_PROXY_SECRET")
 
   force_ssl = System.get_env("ALPACA_PROXY_FORCE_SSL", "false")
   host = System.get_env("ALPACA_PROXY_HOST", "localhost")

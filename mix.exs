@@ -30,7 +30,8 @@ defmodule AlpacaProxy.MixProject do
       test_coverage: [tool: ExCoveralls],
       version: "1.0.0-rc.0",
       aliases: aliases(),
-      preferred_cli_env: preferred_cli_envs()
+      preferred_cli_env: preferred_cli_envs(),
+      dialyzer: [plt_add_apps: [:mix]]
     ]
   end
 

@@ -1,15 +1,21 @@
 defmodule AlpacaProxyWeb.V1Test do
   use ExUnit.Case, async: true
 
+  alias Plug.BasicAuth
   alias Plug.Conn
 
   require Phoenix.ConnTest, as: ConnTest
 
   setup _tags do
-    proxy_env = Application.fetch_env!(:alpaca_proxy, AlpacaProxyWeb)
-    port = proxy_env[:port]
-    endpoint = "#{proxy_env[:host]}:#{port}"
-    {:ok, bypass: Bypass.open(port: port), conn: ConnTest.build_conn(), endpoint: endpoint}
+    env = Application.fetch_env!(:alpaca_proxy, AlpacaProxyWeb)
+    api_env = env[:api]
+    unauthorized_conn = ConnTest.build_conn()
+    authorization = BasicAuth.encode_basic_auth("belay", env[:secret])
+    conn = Conn.put_req_header(unauthorized_conn, "authorization", authorization)
+    port = api_env[:port]
+    bypass = Bypass.open(port: String.to_integer(port))
+    endpoint = api_env[:host] <> ":" <> port
+    {:ok, bypass: bypass, conn: conn, endpoint: endpoint}
   end
 
   id = "sample"
@@ -19,33 +25,79 @@ defmodule AlpacaProxyWeb.V1Test do
   @error_json Jason.encode!(@error)
   @json Jason.encode!(@data)
 
-  for path <- ~w[/v1/accounts /v1/accounts/#{id} /v1/trading/accounts/#{id}/positions] do
-    describe "GET #{path}" do
+  describe "unauthorized connection" do
+    test "without headers" do
+      unauthorized_conn = ConnTest.build_conn()
+      conn = ConnTest.get(unauthorized_conn, "/v1/accounts")
+      assert ConnTest.response(conn, 401) == "Unauthorized"
+    end
+
+    test "with fake header" do
+      conn =
+        ConnTest.build_conn()
+        |> Conn.put_req_header("authorization", "Basic fake")
+        |> ConnTest.get("/v1/accounts")
+
+      assert ConnTest.response(conn, 401) == "Unauthorized"
+    end
+
+    test "with wrong app_id" do
+      authorization = BasicAuth.encode_basic_auth("fake", "fake")
+
+      conn =
+        ConnTest.build_conn()
+        |> Conn.put_req_header("authorization", authorization)
+        |> ConnTest.get("/v1/accounts")
+
+      assert ConnTest.response(conn, 401) == "Unauthorized"
+    end
+  end
+
+  for path <- [
+        "/v1/accounts",
+        "/v1/accounts/" <> id,
+        "/v1/trading/accounts/" <> id <> "/positions"
+      ] do
+    describe "GET " <> path do
       test "returns 200", %{bypass: bypass, conn: conn} do
-        Bypass.expect_once(bypass, "GET", unquote(path), &json_response(&1, 200, @json))
+        Bypass.expect_once(bypass, "GET", unquote(path), fn conn ->
+          json_response(conn, 200, @json)
+        end)
+
         conn = ConnTest.get(conn, unquote(path))
         assert ConnTest.json_response(conn, 200) == @data
       end
 
       test "returns 500", %{bypass: bypass, conn: conn} do
-        Bypass.expect_once(bypass, "GET", unquote(path), &json_response(&1, 500, @error_json))
+        Bypass.expect_once(bypass, "GET", unquote(path), fn conn ->
+          json_response(conn, 500, @error_json)
+        end)
+
         conn = ConnTest.get(conn, unquote(path))
         assert ConnTest.json_response(conn, 500) == @error
       end
     end
   end
 
-  for path <- ~w[/v1/journals] do
-    describe "POST #{path}" do
+  @post_body %{"data" => "fake"}
+
+  for path <- ["/v1/journals"] do
+    describe "POST " <> path do
       test "returns 200", %{bypass: bypass, conn: conn} do
-        Bypass.expect_once(bypass, "POST", unquote(path), &json_response(&1, 200, @json))
-        conn = ConnTest.post(conn, unquote(path), %{body: "good"})
+        Bypass.expect_once(bypass, "POST", unquote(path), fn conn ->
+          json_response(conn, 200, @json)
+        end)
+
+        conn = ConnTest.post(conn, unquote(path), @post_body)
         assert ConnTest.json_response(conn, 200) == @data
       end
 
       test "returns 500", %{bypass: bypass, conn: conn} do
-        Bypass.expect_once(bypass, "POST", unquote(path), &json_response(&1, 500, @error_json))
-        conn = ConnTest.post(conn, unquote(path), %{body: "wrong"})
+        Bypass.expect_once(bypass, "POST", unquote(path), fn conn ->
+          json_response(conn, 500, @error_json)
+        end)
+
+        conn = ConnTest.post(conn, unquote(path), @post_body)
         assert ConnTest.json_response(conn, 500) == @error
       end
     end
@@ -57,13 +109,15 @@ defmodule AlpacaProxyWeb.V1Test do
     |> Conn.resp(status_code, json)
   end
 
-  @error_messages ~w[something went wrong]
-  @messages ~w[hello world]
+  @error_messages ["something", "went", "wrong"]
+  @messages ["hello", "world"]
 
-  for path <- ~w[/v1/events/journals/status /v1/events/trades] do
-    describe "GET #{path}" do
+  for path <- ["/v1/events/journals/status", "/v1/events/trades"] do
+    describe "GET " <> path do
       test "returns 200", %{bypass: bypass, endpoint: endpoint} do
-        Bypass.expect_once(bypass, "GET", unquote(path), &sse_response(&1, 200, @messages))
+        Bypass.expect_once(bypass, "GET", unquote(path), fn conn ->
+          sse_response(conn, 200, @messages)
+        end)
 
         endpoint
         |> Path.join(unquote(path))
@@ -73,7 +127,9 @@ defmodule AlpacaProxyWeb.V1Test do
       end
 
       test "returns 500", %{bypass: bypass, endpoint: endpoint} do
-        Bypass.expect_once(bypass, "GET", unquote(path), &sse_response(&1, 500, @error_messages))
+        Bypass.expect_once(bypass, "GET", unquote(path), fn conn ->
+          sse_response(conn, 500, @error_messages)
+        end)
 
         endpoint
         |> Path.join(unquote(path))
@@ -100,10 +156,8 @@ defmodule AlpacaProxyWeb.V1Test do
     conn
     |> Conn.put_resp_header("content-type", "text/event-stream")
     |> Conn.send_chunked(status_code)
-    |> then(fn conn ->
-      Enum.reduce(messages, conn, fn message, conn ->
-        tap(conn, &Conn.chunk(&1, message))
-      end)
+    |> tap(fn conn ->
+      Enum.each(messages, fn message -> Conn.chunk(conn, message) end)
     end)
   end
 end

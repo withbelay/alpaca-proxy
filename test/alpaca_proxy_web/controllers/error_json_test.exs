@@ -4,9 +4,10 @@ defmodule AlpacaProxyWeb.ErrorJSONTest do
   alias AlpacaProxyWeb.ErrorJSON
 
   for {code, message} <- %{404 => "Not Found", 500 => "Internal Server Error"} do
-    test "renders #{code}" do
+    test "renders " <> Integer.to_string(code) do
       expected = %{errors: %{detail: unquote(message)}}
-      assert ErrorJSON.render("#{unquote(code)}.json", %{}) == expected
+      code = Integer.to_string(unquote(code))
+      assert ErrorJSON.render(code <> ".json", %{}) == expected
     end
   end
 end
