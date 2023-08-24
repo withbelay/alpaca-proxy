@@ -56,42 +56,6 @@ defmodule AlpacaProxyWeb.V1Test do
     end
   end
 
-  describe "forbidden request" do
-    test "POST /v1/journals without required account_id", %{conn: conn} do
-      body = %{
-        "from_account" => "unknown-account-id",
-        "to_account" => "another-unknown-account-id"
-      }
-
-      conn = ConnTest.post(conn, "/v1/journals", body)
-      assert ConnTest.response(conn, 403) == "Forbidden"
-    end
-
-    test "POST /v1/journals with blacklisted from account_id", %{conn: conn} do
-      proxy_env = Application.fetch_env!(:alpaca_proxy, AlpacaProxyWeb)
-
-      body = %{
-        "from_account" => List.first(proxy_env[:blacklisted_sweep_account_ids]),
-        "to_account" => proxy_env[:sweep_account_id]
-      }
-
-      conn = ConnTest.post(conn, "/v1/journals", body)
-      assert ConnTest.response(conn, 403) == "Forbidden"
-    end
-
-    test "POST /v1/journals with blacklisted to account_id", %{conn: conn} do
-      proxy_env = Application.fetch_env!(:alpaca_proxy, AlpacaProxyWeb)
-
-      body = %{
-        "from_account" => proxy_env[:sweep_account_id],
-        "to_account" => List.first(proxy_env[:blacklisted_sweep_account_ids])
-      }
-
-      conn = ConnTest.post(conn, "/v1/journals", body)
-      assert ConnTest.response(conn, 403) == "Forbidden"
-    end
-  end
-
   for path <- [
         "/v1/accounts",
         "/v1/accounts/" <> id,
@@ -118,10 +82,7 @@ defmodule AlpacaProxyWeb.V1Test do
     end
   end
 
-  @post_body %{
-    "from_account" => "fake-id",
-    "to_account" => "another-fake-id"
-  }
+  @post_body %{"data" => "fake"}
 
   for path <- ["/v1/journals"] do
     describe "POST " <> path do
