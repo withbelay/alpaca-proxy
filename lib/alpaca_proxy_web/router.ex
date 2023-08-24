@@ -4,14 +4,12 @@ defmodule AlpacaProxyWeb.Router do
   import Plug.Conn
   import Phoenix.Controller
 
-  alias AlpacaProxyWeb.Endpoint
-  alias Phoenix.Token
   alias Plug.BasicAuth
   alias Plug.Conn
 
   pipeline :api do
     plug :accepts, ["json"]
-    plug :verify_api_authorization_token
+    plug :verify_proxy_basic_auth
   end
 
   scope "/v1", AlpacaProxyWeb do
@@ -24,10 +22,11 @@ defmodule AlpacaProxyWeb.Router do
     get "/trading/accounts/:account_id/positions", V1Controller, :rest
   end
 
-  @spec verify_api_authorization_token(Conn.t(), any()) :: Conn.t()
-  defp verify_api_authorization_token(conn, _opts) when is_struct(conn, Conn) do
-    with {app_id, token} <- BasicAuth.parse_basic_auth(conn),
-         true <- token_authorized?(app_id, token) do
+  @spec verify_proxy_basic_auth(Conn.t(), any()) :: Conn.t()
+  defp verify_proxy_basic_auth(conn, _opts) when is_struct(conn, Conn) do
+    with {key, secret} <- BasicAuth.parse_basic_auth(conn),
+         "belay" <- key,
+         ^secret <- Application.fetch_env!(:alpaca_proxy, AlpacaProxyWeb)[:secret] do
       conn
     else
       _error ->
@@ -35,12 +34,5 @@ defmodule AlpacaProxyWeb.Router do
         |> Conn.resp(401, "Unauthorized")
         |> Conn.halt()
     end
-  end
-
-  @spec token_authorized?(String.t(), String.t()) :: boolean()
-  defp token_authorized?(app_id, token) do
-    salt = Application.fetch_env!(:alpaca_proxy, AlpacaProxyWeb)[:salt]
-    {result, data} = Token.verify(Endpoint, salt, token)
-    result == :ok and data == app_id
   end
 end

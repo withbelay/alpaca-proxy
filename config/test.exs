@@ -2,10 +2,13 @@ import Config
 
 # A test configuration to work with bypass dependency
 config :alpaca_proxy, AlpacaProxyWeb,
-  host: "localhost",
-  key: "key",
-  port: "4001",
-  scheme: "http",
+  api: [
+    host: "localhost",
+    key: "key",
+    port: "4001",
+    scheme: "http",
+    secret: "secret"
+  ],
   secret: "secret"
 
 config :alpaca_proxy, AlpacaProxyWeb.Endpoint,

@@ -86,6 +86,7 @@ defmodule AlpacaProxyWeb do
     alpaca_api_env =
       :alpaca_proxy
       |> Application.fetch_env!(AlpacaProxyWeb)
+      |> Keyword.fetch!(:api)
       |> Map.new()
 
     map = %{

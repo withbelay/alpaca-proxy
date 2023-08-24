@@ -1,23 +1,20 @@
 defmodule AlpacaProxyWeb.V1Test do
   use ExUnit.Case, async: true
 
-  alias ExUnit.CaptureIO
   alias Plug.BasicAuth
   alias Plug.Conn
 
   require Phoenix.ConnTest, as: ConnTest
 
-  @app_id "belay-api-test"
-  @test_auth_token CaptureIO.capture_io(fn -> Mix.Task.run("ap.gen.token", [@app_id]) end)
-
   setup _tags do
-    proxy_env = Application.fetch_env!(:alpaca_proxy, AlpacaProxyWeb)
+    env = Application.fetch_env!(:alpaca_proxy, AlpacaProxyWeb)
+    api_env = env[:api]
     unauthorized_conn = ConnTest.build_conn()
-    authorization = BasicAuth.encode_basic_auth(@app_id, @test_auth_token)
+    authorization = BasicAuth.encode_basic_auth("belay", env[:secret])
     conn = Conn.put_req_header(unauthorized_conn, "authorization", authorization)
-    port = proxy_env[:port]
+    port = api_env[:port]
     bypass = Bypass.open(port: String.to_integer(port))
-    endpoint = proxy_env[:host] <> ":" <> port
+    endpoint = api_env[:host] <> ":" <> port
     {:ok, bypass: bypass, conn: conn, endpoint: endpoint}
   end
 
@@ -45,7 +42,7 @@ defmodule AlpacaProxyWeb.V1Test do
     end
 
     test "with wrong app_id" do
-      authorization = BasicAuth.encode_basic_auth("fake", @test_auth_token)
+      authorization = BasicAuth.encode_basic_auth("fake", "fake")
 
       conn =
         ConnTest.build_conn()
