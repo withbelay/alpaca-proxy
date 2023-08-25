@@ -26,6 +26,7 @@ defmodule AlpacaProxyWeb do
   defp copy_data(conn, response) when is_struct(response, Response) do
     response
     |> Map.fetch!(:headers)
+    |> Enum.reject(fn {name, _value} -> name == "Transfer-Encoding" end)
     |> Enum.reduce(conn, fn {key, value}, conn ->
       Conn.put_resp_header(conn, key, value)
     end)
