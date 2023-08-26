@@ -14,6 +14,12 @@ defmodule AlpacaProxy.Response do
     end
   end
 
+  @spec handle_message(Conn.t(), {:plug_conn, :sent}, nil | non_neg_integer()) :: conn :: Conn.t()
+  defp handle_message(conn, tuple, status_code)
+       when is_tuple(tuple) and elem(tuple, 0) == :plug_conn and elem(tuple, 1) == :sent do
+    chunked(conn, status_code)
+  end
+
   @spec handle_message(Conn.t(), AsyncStatus.t(), nil | non_neg_integer()) :: conn :: Conn.t()
   defp handle_message(conn, async_status, nil)
        when is_struct(async_status, AsyncStatus) do
