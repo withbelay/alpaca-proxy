@@ -7,23 +7,20 @@ defmodule AlpacaProxyWeb.V1Test do
   require Phoenix.ConnTest, as: ConnTest
 
   setup _tags do
-    env = Application.fetch_env!(:alpaca_proxy, AlpacaProxyWeb)
+    env = Application.fetch_env!(:alpaca_proxy, AlpacaProxy.API)
     api_env = env[:api]
     unauthorized_conn = ConnTest.build_conn()
     authorization = BasicAuth.encode_basic_auth("belay", env[:secret])
     conn = Conn.put_req_header(unauthorized_conn, "authorization", authorization)
-    port = api_env[:port]
-    bypass = Bypass.open(port: String.to_integer(port))
-    endpoint = api_env[:host] <> ":" <> port
-    {:ok, bypass: bypass, conn: conn, endpoint: endpoint}
+    port = String.to_integer(api_env[:port])
+    endpoint_uri = struct(URI, host: api_env[:host], port: port, scheme: api_env[:scheme])
+    {:ok, bypass: Bypass.open(port: port), conn: conn, endpoint: URI.to_string(endpoint_uri)}
   end
 
   id = "sample"
   @endpoint AlpacaProxyWeb.Endpoint
-  @data %{"sample" => "data"}
-  @error %{"error" => "raison"}
-  @error_json Jason.encode!(@error)
-  @json Jason.encode!(@data)
+  @error_messages ["something", "went", "wrong"]
+  @messages ["hello", "world"]
 
   describe "unauthorized connection" do
     test "without headers" do
@@ -53,97 +50,37 @@ defmodule AlpacaProxyWeb.V1Test do
     end
   end
 
-  for path <- [
-        "/v1/accounts",
-        "/v1/accounts/" <> id,
-        "/v1/trading/accounts/" <> id <> "/positions"
-      ] do
-    describe "GET " <> path do
-      test "returns 200", %{bypass: bypass, conn: conn} do
-        Bypass.expect_once(bypass, "GET", unquote(path), fn conn ->
-          json_response(conn, 200, @json)
-        end)
+  accounts_routes = ["/accounts", "/accounts/" <> id]
+  events_routes = ["/events/journals/status", "/events/trades"]
+  get_routes = ["/trading/accounts/" <> id <> "/positions"] ++ accounts_routes ++ events_routes
+  routes = [{"GET", get_routes}, {"POST", ["/journals"]}]
 
-        conn = ConnTest.get(conn, unquote(path))
-        assert ConnTest.json_response(conn, 200) == @data
-      end
-
-      test "returns 500", %{bypass: bypass, conn: conn} do
-        Bypass.expect_once(bypass, "GET", unquote(path), fn conn ->
-          json_response(conn, 500, @error_json)
-        end)
-
-        conn = ConnTest.get(conn, unquote(path))
-        assert ConnTest.json_response(conn, 500) == @error
-      end
-    end
-  end
-
-  @post_body %{"data" => "fake"}
-
-  for path <- ["/v1/journals"] do
-    describe "POST " <> path do
-      test "returns 200", %{bypass: bypass, conn: conn} do
-        Bypass.expect_once(bypass, "POST", unquote(path), fn conn ->
-          json_response(conn, 200, @json)
-        end)
-
-        conn = ConnTest.post(conn, unquote(path), @post_body)
-        assert ConnTest.json_response(conn, 200) == @data
-      end
-
-      test "returns 500", %{bypass: bypass, conn: conn} do
-        Bypass.expect_once(bypass, "POST", unquote(path), fn conn ->
-          json_response(conn, 500, @error_json)
-        end)
-
-        conn = ConnTest.post(conn, unquote(path), @post_body)
-        assert ConnTest.json_response(conn, 500) == @error
-      end
-    end
-  end
-
-  defp json_response(conn, status_code, json) do
-    conn
-    |> Conn.put_resp_content_type("application/json")
-    |> Conn.resp(status_code, json)
-  end
-
-  @error_messages ["something", "went", "wrong"]
-  @messages ["hello", "world"]
-
-  for path <- ["/v1/events/journals/status", "/v1/events/trades"] do
-    describe "GET " <> path do
+  for {method, paths} <- routes, path <- paths, v1_path = Path.join("v1", path) do
+    describe method <> " " <> v1_path do
       test "returns 200", %{bypass: bypass, endpoint: endpoint} do
-        Bypass.expect_once(bypass, "GET", unquote(path), fn conn ->
-          sse_response(conn, 200, @messages)
+        Bypass.expect_once(bypass, unquote(method), unquote(v1_path), fn conn ->
+          chunked_response(conn, 200, @messages)
         end)
 
-        endpoint
-        |> Path.join(unquote(path))
-        |> HTTPoison.get!([], recv_timeout: :infinity, stream_to: self())
-
-        assert_receive_messages(@messages, 200)
+        fetch!(unquote(method), endpoint, unquote(v1_path))
+        assert_chunked_response(200, @messages)
       end
 
       test "returns 500", %{bypass: bypass, endpoint: endpoint} do
-        Bypass.expect_once(bypass, "GET", unquote(path), fn conn ->
-          sse_response(conn, 500, @error_messages)
+        Bypass.expect_once(bypass, unquote(method), unquote(v1_path), fn conn ->
+          chunked_response(conn, 500, @error_messages)
         end)
 
-        endpoint
-        |> Path.join(unquote(path))
-        |> HTTPoison.get!([], recv_timeout: :infinity, stream_to: self())
-
-        assert_receive_messages(@error_messages, 500)
+        fetch!(unquote(method), endpoint, unquote(v1_path))
+        assert_chunked_response(500, @error_messages)
       end
     end
   end
 
-  defp assert_receive_messages(messages, status_code) do
+  defp assert_chunked_response(status_code, messages) do
     assert_receive %HTTPoison.AsyncStatus{code: ^status_code}, 200
     assert_receive %HTTPoison.AsyncHeaders{headers: headers}, 200
-    assert {"content-type", "text/event-stream"} in headers
+    assert {"transfer-encoding", "chunked"} in headers
 
     for message <- messages do
       assert_receive %HTTPoison.AsyncChunk{chunk: ^message}, 200
@@ -152,12 +89,26 @@ defmodule AlpacaProxyWeb.V1Test do
     assert_receive %HTTPoison.AsyncEnd{}, 200
   end
 
-  defp sse_response(conn, status_code, messages) do
+  defp chunked_response(conn, status_code, messages) do
     conn
-    |> Conn.put_resp_header("content-type", "text/event-stream")
     |> Conn.send_chunked(status_code)
     |> tap(fn conn ->
       Enum.each(messages, fn message -> Conn.chunk(conn, message) end)
     end)
+  end
+
+  defp fetch!("GET", endpoint, path) do
+    endpoint
+    |> Path.join(path)
+    |> HTTPoison.get!([], recv_timeout: :infinity, stream_to: self())
+  end
+
+  defp fetch!("POST", endpoint, path) do
+    endpoint
+    |> Path.join(path)
+    |> HTTPoison.post!({:form, [{"data", "fake"}]}, [],
+      recv_timeout: :infinity,
+      stream_to: self()
+    )
   end
 end
