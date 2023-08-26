@@ -7,14 +7,12 @@ defmodule AlpacaProxyWeb.V1Test do
   require Phoenix.ConnTest, as: ConnTest
 
   setup _tags do
-    env = Application.fetch_env!(:alpaca_proxy, AlpacaProxy.API)
-    api_env = env[:api]
-    unauthorized_conn = ConnTest.build_conn()
-    authorization = BasicAuth.encode_basic_auth("belay", env[:secret])
-    conn = Conn.put_req_header(unauthorized_conn, "authorization", authorization)
+    api_env = Application.fetch_env!(:alpaca_proxy, AlpacaProxy.API)[:api]
     port = String.to_integer(api_env[:port])
     endpoint_uri = struct(URI, host: api_env[:host], port: port, scheme: api_env[:scheme])
-    {:ok, bypass: Bypass.open(port: port), conn: conn, endpoint: URI.to_string(endpoint_uri)}
+    endpoint = URI.to_string(endpoint_uri)
+
+    {:ok, bypass: Bypass.open(port: port), conn: ConnTest.build_conn(), endpoint: endpoint}
   end
 
   id = "sample"
@@ -23,26 +21,25 @@ defmodule AlpacaProxyWeb.V1Test do
   @messages ["hello", "world"]
 
   describe "unauthorized connection" do
-    test "without headers" do
-      unauthorized_conn = ConnTest.build_conn()
-      conn = ConnTest.get(unauthorized_conn, "/v1/accounts")
+    test "without headers", %{conn: conn} do
+      conn = ConnTest.get(conn, "/v1/accounts")
       assert ConnTest.response(conn, 401) == "Unauthorized"
     end
 
-    test "with fake header" do
+    test "with fake header", %{conn: conn} do
       conn =
-        ConnTest.build_conn()
+        conn
         |> Conn.put_req_header("authorization", "Basic fake")
         |> ConnTest.get("/v1/accounts")
 
       assert ConnTest.response(conn, 401) == "Unauthorized"
     end
 
-    test "with wrong app_id" do
+    test "with wrong app_id", %{conn: conn} do
       authorization = BasicAuth.encode_basic_auth("fake", "fake")
 
       conn =
-        ConnTest.build_conn()
+        conn
         |> Conn.put_req_header("authorization", authorization)
         |> ConnTest.get("/v1/accounts")
 
@@ -104,9 +101,12 @@ defmodule AlpacaProxyWeb.V1Test do
   end
 
   defp fetch!("POST", endpoint, path) do
+    secret = Application.fetch_env!(:alpaca_proxy, :secret)
+    authorization = BasicAuth.encode_basic_auth("belay", secret)
+
     endpoint
     |> Path.join(path)
-    |> HTTPoison.post!({:form, [{"data", "fake"}]}, [],
+    |> HTTPoison.post!({:form, [{"data", "fake"}]}, [{"authorization", authorization}],
       recv_timeout: :infinity,
       stream_to: self()
     )
