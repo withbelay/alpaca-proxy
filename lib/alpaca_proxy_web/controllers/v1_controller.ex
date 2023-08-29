@@ -5,7 +5,7 @@ defmodule AlpacaProxyWeb.V1Controller do
   alias AlpacaProxy.Response
   alias Plug.Conn
 
-  @doc "Handles requests to Server-Sent Events API"
+  @doc "Proxy requests with chunked response"
   @spec chunked_response(Conn.t(), Conn.params()) :: Conn.t()
   def chunked_response(conn, _params) do
     API.async_fetch!(conn)
