@@ -1,6 +1,7 @@
 defmodule AlpacaProxyWeb.V1Test do
   use ExUnit.Case, async: false
 
+  alias AlpacaProxyWeb.Endpoint
   alias Plug.BasicAuth
   alias Plug.Conn
 
@@ -8,13 +9,13 @@ defmodule AlpacaProxyWeb.V1Test do
 
   setup _tags do
     api_env = Application.fetch_env!(:alpaca_proxy, AlpacaProxy.API)[:api]
-    endpoint_env = Application.fetch_env!(:alpaca_proxy, AlpacaProxyWeb.Endpoint)
+    endpoint_env = Application.fetch_env!(:alpaca_proxy, Endpoint)
     secret = Application.fetch_env!(:alpaca_proxy, :secret)
 
     endpoint_uri =
       struct(URI,
-        host: endpoint_env[:url][:host],
-        port: endpoint_env[:http][:port],
+        host: Endpoint.config(:url)[:host],
+        port: Endpoint.config(:http)[:port],
         scheme: "http"
       )
 
