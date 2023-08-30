@@ -1,5 +1,5 @@
 defmodule AlpacaProxyWeb.V1Test do
-  use ExUnit.Case, async: false
+  use ExUnit.Case, async: true
 
   alias AlpacaProxyWeb.Endpoint
   alias Plug.BasicAuth
@@ -9,7 +9,6 @@ defmodule AlpacaProxyWeb.V1Test do
 
   setup _tags do
     api_env = Application.fetch_env!(:alpaca_proxy, AlpacaProxy.API)[:api]
-    endpoint_env = Application.fetch_env!(:alpaca_proxy, Endpoint)
     secret = Application.fetch_env!(:alpaca_proxy, :secret)
 
     endpoint_uri =
