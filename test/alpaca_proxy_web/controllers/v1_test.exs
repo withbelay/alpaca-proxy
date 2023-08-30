@@ -8,6 +8,8 @@ defmodule AlpacaProxyWeb.V1Test do
   require Phoenix.ConnTest, as: ConnTest
 
   setup _tags do
+    # Our configuration of AlpacaProxyWeb.Endpoint has set server to true, which implies we are running a
+    # real local server. Below we attach bypass to listen to the port of that live server
     api_env = Application.fetch_env!(:alpaca_proxy, AlpacaProxy.API)[:api]
     secret = Application.fetch_env!(:alpaca_proxy, :secret)
 
@@ -75,6 +77,7 @@ defmodule AlpacaProxyWeb.V1Test do
         chunked_response(conn, unquote(status_code), unquote(messages))
       end)
 
+      # This fetch! is pointing back at the local cowboy server, so we are sending a REST call to our router
       fetch!(unquote(method), data.endpoint, unquote(path), data.authorization)
       assert_chunked_response(unquote(status_code), unquote(messages))
     end
