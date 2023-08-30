@@ -1,0 +1,3 @@
+{
+  "skip_files": ["lib/alpaca_proxy/application.ex", "lib/alpaca_proxy_web/endpoint.ex"]
+}
