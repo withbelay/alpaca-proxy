@@ -9,7 +9,9 @@ defmodule AlpacaProxyWeb.V1Test do
 
   # Generated this list by:
   # 1. Export this postman collection as JSON
-  # 2. `cat Broker\ API.postman_collection.json | jq '.item[].item[].request | {method, "url": .url["raw"]} | join(" ")'`
+  #    (https://www.postman.com/alpacamarkets/workspace/alpaca-public-workspace/request/19455863-d2ce00ad-f66b-4505-bb96-7a909b8621de)
+  # 2. `cat Broker\ API.postman_collection.json | jq '.item[].item[].request | {method, "url": .url["raw"]} | join("
+  #    ")'`
   @unproxied_routes [
     {"POST", "/v1/accounts"},
     {"PATCH", "/v1/accounts/:account_id"},
