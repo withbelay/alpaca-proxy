@@ -5,35 +5,36 @@ defmodule AlpacaProxy.API do
   alias Plug.BasicAuth
   alias Plug.Conn
 
+  @enforce_keys [:base_url, :key, :secret]
+  defstruct [:base_url, :key, :secret]
+
   @type body_params :: Conn.params() | []
   @type headers :: HTTPoison.headers()
 
-  @spec async_fetch!(conn :: Conn.t()) :: async_response :: AsyncResponse.t()
-  def async_fetch!(conn) when is_struct(conn, Conn) do
-    alpaca_api_env =
-      :alpaca_proxy
-      |> Application.fetch_env!(__MODULE__)
-      |> Keyword.fetch!(:api)
-      |> Map.new()
+  @spec get_config :: struct
+  def get_config() do
+    struct!(__MODULE__, Application.fetch_env!(:alpaca_proxy, __MODULE__))
+  end
 
-    authorization = BasicAuth.encode_basic_auth(alpaca_api_env.key, alpaca_api_env.secret)
-    port = String.to_integer(alpaca_api_env[:port])
+  @spec async_fetch!(Conn.t()) :: AsyncResponse.t()
+  def async_fetch!(conn) when is_struct(conn, Conn) do
+    config = get_config()
 
     headers =
-      [{"authorization", authorization}] ++
-        Enum.reject(conn.req_headers, fn tuple ->
-          elem(tuple, 0) in ["authorization", "cookie", "host"]
-        end)
+      conn.req_headers
+      |> reject_hijacked_headers()
+      |> add_alpaca_authorization(config.key, config.secret)
 
-    URI
-    |> struct(host: alpaca_api_env[:host], port: port, scheme: alpaca_api_env[:scheme])
-    |> struct(path: conn.request_path, query: conn.query_string)
-    |> URI.to_string()
-    |> async_fetch!(conn.method, Map.to_list(conn.body_params), headers)
+    async_fetch!(
+      build_url(config, conn),
+      conn.method,
+      Map.to_list(conn.body_params),
+      headers
+    )
   end
 
   @spec async_fetch!(String.t(), method :: String.t(), body_params(), headers()) ::
-          async_response :: AsyncResponse.t()
+          AsyncResponse.t()
   defp async_fetch!(url, "GET", [], headers) do
     opts = [recv_timeout: :infinity, stream_to: self(), timeout: :infinity]
     HTTPoison.get!(url, headers, opts)
@@ -42,5 +43,22 @@ defmodule AlpacaProxy.API do
   defp async_fetch!(url, "POST", body_params, headers) do
     opts = [recv_timeout: :infinity, stream_to: self(), timeout: :infinity]
     HTTPoison.post!(url, {:form, body_params}, headers, opts)
+  end
+
+  defp add_alpaca_authorization(req_headers, key, secret) do
+    [{"authorization", BasicAuth.encode_basic_auth(key, secret)} | req_headers]
+  end
+
+  defp reject_hijacked_headers(req_headers) do
+    Enum.reject(req_headers, fn
+      {name, _value} when name in ["authorization", "cookie", "host"] -> true
+      _any -> false
+    end)
+  end
+
+  defp build_url(%__MODULE__{} = config, %Conn{} = conn) do
+    URI.merge(config.base_url, conn.request_path)
+    |> URI.append_query(conn.query_string)
+    |> URI.to_string()
   end
 end

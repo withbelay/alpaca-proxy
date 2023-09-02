@@ -17,10 +17,7 @@ defmodule AlpacaProxy.Application do
   def start(_type, _args) do
     LoggerBackends.add(Sentry.LoggerBackend)
 
-    children = [
-      {Phoenix.PubSub, name: AlpacaProxy.PubSub},
-      Endpoint
-    ]
+    children = [Endpoint]
 
     opts = [strategy: :one_for_one, name: AlpacaProxy.Supervisor]
     Supervisor.start_link(children, opts)

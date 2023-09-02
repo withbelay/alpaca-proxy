@@ -4,13 +4,10 @@ import Config
 config :alpaca_proxy, secret: "secret"
 
 config :alpaca_proxy, AlpacaProxy.API,
-  api: [
-    host: "broker-api.sandbox.alpaca.markets",
-    key: "CK3M9F1VI3FESOT1TS2M",
-    port: "443",
-    scheme: "https",
-    secret: "BhNnaexBg3eCo4KlvIFlGDzzOJS88H7zxLkiVr4S"
-  ]
+  host: "https://broker-api.sandbox.alpaca.markets",
+  # FIXME: These should be env vars
+  key: "CK3M9F1VI3FESOT1TS2M",
+  secret: "BhNnaexBg3eCo4KlvIFlGDzzOJS88H7zxLkiVr4S"
 
 config :alpaca_proxy, AlpacaProxyWeb.Endpoint,
   check_origin: false,

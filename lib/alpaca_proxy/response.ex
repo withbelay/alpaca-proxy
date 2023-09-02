@@ -22,8 +22,7 @@ defmodule AlpacaProxy.Response do
   end
 
   @spec handle_message(Conn.t(), message(), nil | non_neg_integer()) :: conn :: Conn.t()
-  defp handle_message(conn, tuple, status_code)
-       when is_tuple(tuple) and elem(tuple, 0) == :plug_conn and elem(tuple, 1) == :sent do
+  defp handle_message(conn, {:plug_conn, :sent}, status_code) do
     chunked(conn, status_code)
   end
 
@@ -34,8 +33,7 @@ defmodule AlpacaProxy.Response do
     |> chunked(async_status.code)
   end
 
-  defp handle_message(conn, async_headers, status_code)
-       when is_struct(async_headers, AsyncHeaders) do
+  defp handle_message(conn, %AsyncHeaders{} = async_headers, status_code) do
     headers =
       async_headers
       |> Map.fetch!(:headers)
@@ -47,12 +45,12 @@ defmodule AlpacaProxy.Response do
     |> chunked(status_code)
   end
 
-  defp handle_message(conn, async_chunk, status_code) when is_struct(async_chunk, AsyncChunk) do
+  defp handle_message(conn, %AsyncChunk{} = async_chunk, status_code) do
     Conn.chunk(conn, async_chunk.chunk)
     chunked(conn, status_code)
   end
 
-  defp handle_message(conn, async_end, _status_code) when is_struct(async_end, AsyncEnd) do
+  defp handle_message(conn, %AsyncEnd{}, _status_code) do
     conn
   end
 end
