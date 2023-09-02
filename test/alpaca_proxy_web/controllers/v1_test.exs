@@ -150,6 +150,7 @@ defmodule AlpacaProxyWeb.V1Test do
       } do
         # There is an Alpaca out there listening, but we should not be able to access it
         path = String.split(@path, "?") |> List.first()
+
         Bypass.stub(bypass, @method, path, fn conn ->
           conn = Conn.send_chunked(conn, 200)
           Enum.each(@chunked_success, fn message -> Conn.chunk(conn, message) end)
@@ -175,6 +176,7 @@ defmodule AlpacaProxyWeb.V1Test do
       } do
         # There is an Alpaca out there listening, and now we expect it to be used (expect vs stub)
         path = String.split(@path, "?") |> List.first()
+
         Bypass.expect(bypass, @method, path, fn conn ->
           conn = Conn.send_chunked(conn, 200)
           Enum.each(@chunked_success, fn message -> Conn.chunk(conn, message) end)
