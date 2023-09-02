@@ -58,7 +58,7 @@ jobs:
 
   deploy:
     if: github.ref_name == 'main' || github.ref_name == 'staging'
-    uses: "withbelay/fly-deploy-action/.github/workflows/deploy.yml@v2.0.2"
+    uses: "withbelay/fly-deploy-action/.github/workflows/deploy.yml@v2.0.3"
     needs: build
     with:
       app: alpaca-proxy
