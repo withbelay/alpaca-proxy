@@ -22,7 +22,8 @@ defmodule AlpacaProxyWeb.V1Test do
     {"GET", "/v1/assets/:symbol_or_asset_id"},
     {"GET", "/v1/calendar"},
     {"GET", "/v1/clock"},
-    {"GET", "/v1/corporate_actions/announcements?ca_types=dividend,merger,spinoff,split&since=2022-05-01&until=2022-07-01"},
+    {"GET",
+     "/v1/corporate_actions/announcements?ca_types=dividend,merger,spinoff,split&since=2022-05-01&until=2022-07-01"},
     {"POST", "/v1/accounts/:account_id/documents/upload"},
     {"GET", "/v1/accounts/:account_id/documents"},
     {"GET", "/v1/accounts/:account_id/documents/:document_id/download"},
@@ -93,12 +94,14 @@ defmodule AlpacaProxyWeb.V1Test do
     config = AlpacaProxy.API.get_config()
     bypass = Bypass.open(port: 4001)
     conn = ConnTest.build_conn()
+
     endpoint_uri =
       struct(URI,
         host: Endpoint.config(:url)[:host],
         port: Endpoint.config(:http)[:port],
         scheme: "http"
       )
+
     authorization = BasicAuth.encode_basic_auth("belay", config.secret)
     endpoint = URI.to_string(endpoint_uri)
     {:ok, authorization: authorization, bypass: bypass, conn: conn, base_url: endpoint}
@@ -139,7 +142,11 @@ defmodule AlpacaProxyWeb.V1Test do
       @method method
       @path path
 
-      test "#{@method} #{path} is not found", %{bypass: bypass, base_url: base_url, authorization: authorization} do
+      test "#{@method} #{path} is not found", %{
+        bypass: bypass,
+        base_url: base_url,
+        authorization: authorization
+      } do
         # There is an Alpaca out there listening, but we should not be able to access it
         Bypass.stub(bypass, @method, @path, fn conn ->
           conn = Conn.send_chunked(conn, 200)
@@ -169,11 +176,16 @@ defmodule AlpacaProxyWeb.V1Test do
       @method method
       @path path
 
-      test "#{@method} #{path} is proxied", %{bypass: bypass, base_url: base_url, authorization: authorization} do
+      test "#{@method} #{path} is proxied", %{
+        bypass: bypass,
+        base_url: base_url,
+        authorization: authorization
+      } do
         # There is an Alpaca out there listening, and now we expect it to be used (expect vs stub)
         path = String.split(@path, "?") |> List.first()
+
         Bypass.expect(bypass, @method, path, fn conn ->
-          conn = Conn.send_chunked(conn,200)
+          conn = Conn.send_chunked(conn, 200)
           Enum.each(@chunked_success, fn message -> Conn.chunk(conn, message) end)
           conn
         end)
@@ -182,6 +194,7 @@ defmodule AlpacaProxyWeb.V1Test do
         url = Path.join(base_url, @path)
         headers = [{"authorization", authorization}]
         form = {:form, [{"data", "fake"}]}
+
         case @method do
           "DELETE" -> HTTPoison.delete!(url, headers, opts)
           "GET" -> HTTPoison.get!(url, headers, opts)

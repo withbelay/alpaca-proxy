@@ -16,7 +16,7 @@ if config_env() == :prod do
   config :alpaca_proxy, secret: System.fetch_env!("ALPACA_PROXY_SECRET")
 
   config :alpaca_proxy, AlpacaProxy.API,
-    #FIXME: this should default to alpaca's real url in prod
+    # FIXME: this should default to alpaca's real url in prod
     base_url: System.fetch_env!("ALPACA_PROXY_BASE_URL"),
     key: System.fetch_env!("ALPACA_PROXY_API_KEY"),
     secret: System.fetch_env!("ALPACA_PROXY_API_SECRET")
