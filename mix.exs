@@ -20,6 +20,7 @@ defmodule AlpacaProxy.MixProject do
         {:httpoison, "~> 2.1"},
         {:jason, "~> 1.4"},
         {:logger_backends, "~> 1.0"},
+        {:mix_test_watch, "~> 1.0", only: [:dev, :test], runtime: false},
         {:phoenix, "~> 1.7"},
         {:plug_cowboy, "~> 2.6"},
         {:sentry, "~> 8.1"}
@@ -43,7 +44,8 @@ defmodule AlpacaProxy.MixProject do
 
   defp preferred_cli_envs() do
     [
-      dialyzer: :test
+      dialyzer: :test,
+      "test.watch": :test
     ]
   end
 
