@@ -139,8 +139,7 @@ defmodule AlpacaProxyWeb.V1Test do
   end
 
   describe "when attempting to access denied routes" do
-    @unproxied_routes
-    |> Enum.map(fn {method, path} ->
+    Enum.map(@unproxied_routes, fn {method, path} ->
       @method method
       @path path
 
@@ -150,22 +149,14 @@ defmodule AlpacaProxyWeb.V1Test do
         authorization: authorization
       } do
         # There is an Alpaca out there listening, but we should not be able to access it
-        Bypass.stub(bypass, @method, @path, fn conn ->
+        path = String.split(@path, "?") |> List.first()
+        Bypass.stub(bypass, @method, path, fn conn ->
           conn = Conn.send_chunked(conn, 200)
           Enum.each(@chunked_success, fn message -> Conn.chunk(conn, message) end)
           conn
         end)
 
-        opts = [recv_timeout: :infinity, stream_to: self()]
-        url = Path.join(base_url, @path)
-
-        case @method do
-          "DELETE" -> HTTPoison.delete!(url, [{"authorization", authorization}], opts)
-          "GET" -> HTTPoison.get!(url, [{"authorization", authorization}], opts)
-          "PATCH" -> HTTPoison.patch!(url, {:form, []}, [{"authorization", authorization}], opts)
-          "POST" -> HTTPoison.post!(url, {:form, []}, [{"authorization", authorization}], opts)
-          "PUT" -> HTTPoison.put!(url, {:form, []}, [{"authorization", authorization}], opts)
-        end
+        execute_request(@method, @path, base_url, authorization)
 
         assert_404()
       end
@@ -173,8 +164,7 @@ defmodule AlpacaProxyWeb.V1Test do
   end
 
   describe "when accessing permitted routes" do
-    @proxied_routes
-    |> Enum.map(fn {method, path} ->
+    Enum.map(@proxied_routes, fn {method, path} ->
       @method method
       @path path
 
@@ -185,29 +175,31 @@ defmodule AlpacaProxyWeb.V1Test do
       } do
         # There is an Alpaca out there listening, and now we expect it to be used (expect vs stub)
         path = String.split(@path, "?") |> List.first()
-
         Bypass.expect(bypass, @method, path, fn conn ->
           conn = Conn.send_chunked(conn, 200)
           Enum.each(@chunked_success, fn message -> Conn.chunk(conn, message) end)
           conn
         end)
 
-        opts = [recv_timeout: :infinity, stream_to: self()]
-        url = Path.join(base_url, @path)
-        headers = [{"authorization", authorization}]
-        form = {:form, [{"data", "fake"}]}
-
-        case @method do
-          "DELETE" -> HTTPoison.delete!(url, headers, opts)
-          "GET" -> HTTPoison.get!(url, headers, opts)
-          "PATCH" -> HTTPoison.patch!(url, form, headers, opts)
-          "POST" -> HTTPoison.post!(url, form, headers, opts)
-          "PUT" -> HTTPoison.put!(url, form, headers, opts)
-        end
+        execute_request(@method, @path, base_url, authorization)
 
         assert_chunked_response(200, @chunked_success)
       end
     end)
+  end
+
+  defp execute_request(method, path, base_url, authorization) do
+    opts = [recv_timeout: :infinity, stream_to: self()]
+    url = Path.join(base_url, path)
+    headers = [{"authorization", authorization}]
+
+    case method do
+      "DELETE" -> HTTPoison.delete!(url, headers, opts)
+      "GET" -> HTTPoison.get!(url, headers, opts)
+      "PATCH" -> HTTPoison.patch!(url, {:form, []}, headers, opts)
+      "POST" -> HTTPoison.post!(url, {:form, []}, headers, opts)
+      "PUT" -> HTTPoison.put!(url, {:form, []}, headers, opts)
+    end
   end
 
   defp assert_404() do
