@@ -26,3 +26,5 @@ erl_crash.dump
 alpaca_proxy-*.tar
 
 .history/
+.env
+.envrc

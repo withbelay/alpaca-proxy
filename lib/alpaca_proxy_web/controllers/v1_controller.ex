@@ -1,13 +1,22 @@
 defmodule AlpacaProxyWeb.V1Controller do
   use Phoenix.Controller, formats: [:json]
 
+  alias AlpacaProxy.API
+  alias AlpacaProxy.Response
   alias Plug.Conn
 
-  @doc "Handles requests to representational state transfer API"
-  @spec rest(Conn.t(), Conn.params()) :: Conn.t()
-  def rest(conn, _params), do: AlpacaProxyWeb.rest(conn)
+  @doc "Proxy requests with chunked response"
+  @spec chunked_response(Conn.t(), Conn.params()) :: Conn.t()
+  def chunked_response(conn, _params) do
+    API.async_fetch!(conn)
+    Response.chunked(conn)
+  end
 
-  @doc "Handles requests to Server-Sent Events API"
-  @spec sse(Conn.t(), Conn.params()) :: Conn.t()
-  def sse(conn, _params), do: AlpacaProxyWeb.server_sent_event(conn)
+  # had to special case "/v1/accounts/activities", because it's the fastest way to distinguish between activities and an
+  # account_id.
+  def get_account(conn, %{"account_id" => "activities"}) do
+    raise Phoenix.Router.NoRouteError, conn: conn, router: AlpacaProxyWeb.Router
+  end
+
+  def get_account(conn, params), do: chunked_response(conn, params)
 end

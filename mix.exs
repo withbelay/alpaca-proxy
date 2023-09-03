@@ -14,12 +14,13 @@ defmodule AlpacaProxy.MixProject do
       deps: [
         {:bypass, "~> 2.1", only: :test},
         {:credo, "~> 1.7", only: [:dev, :test], runtime: false},
-        {:dialyxir, "~> 1.3", only: :test, runtime: false},
+        {:dialyxir, "~> 1.4", only: :test, runtime: false},
         {:ex_doc, "~> 0.30", only: :dev, runtime: false},
         {:excoveralls, "~> 0.17", only: :test},
         {:httpoison, "~> 2.1"},
         {:jason, "~> 1.4"},
         {:logger_backends, "~> 1.0"},
+        {:mix_test_watch, "~> 1.0", only: [:dev, :test], runtime: false},
         {:phoenix, "~> 1.7"},
         {:plug_cowboy, "~> 2.6"},
         {:sentry, "~> 8.1"}
@@ -30,7 +31,8 @@ defmodule AlpacaProxy.MixProject do
       test_coverage: [tool: ExCoveralls],
       version: "1.0.0-rc.0",
       aliases: aliases(),
-      preferred_cli_env: preferred_cli_envs()
+      preferred_cli_env: preferred_cli_envs(),
+      dialyzer: [plt_add_apps: [:mix]]
     ]
   end
 
@@ -42,7 +44,8 @@ defmodule AlpacaProxy.MixProject do
 
   defp preferred_cli_envs() do
     [
-      dialyzer: :test
+      dialyzer: :test,
+      "test.watch": :test
     ]
   end
 

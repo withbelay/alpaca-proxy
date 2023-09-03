@@ -1,12 +1,12 @@
 import Config
 
 # A sandbox configuration to test with real endpoint
-config :alpaca_proxy, AlpacaProxyWeb,
-  host: "broker-api.sandbox.alpaca.markets",
-  key: "CK3M9F1VI3FESOT1TS2M",
-  port: 80,
-  scheme: "https",
-  secret: "BhNnaexBg3eCo4KlvIFlGDzzOJS88H7zxLkiVr4S"
+config :alpaca_proxy, secret: "secret"
+
+config :alpaca_proxy, AlpacaProxy.API,
+  host: "https://broker-api.sandbox.alpaca.markets",
+  key: System.get_env("ALPACA_KEY", "KEY"),
+  secret: System.get_env("ALPACA_SECRET", "SECRET")
 
 config :alpaca_proxy, AlpacaProxyWeb.Endpoint,
   check_origin: false,

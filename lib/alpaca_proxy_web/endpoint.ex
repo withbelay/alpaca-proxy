@@ -10,7 +10,7 @@ defmodule AlpacaProxyWeb.Endpoint do
     store: :cookie
   ]
 
-  @static_paths ~w(assets fonts images favicon.ico robots.txt)
+  @static_paths ["assets", "fonts", "images", "favicon.ico", "robots.txt"]
   plug Plug.Static, at: "/", from: :alpaca_proxy, gzip: false, only: @static_paths
 
   plug Plug.RequestId
@@ -21,7 +21,6 @@ defmodule AlpacaProxyWeb.Endpoint do
     pass: ["*/*"]
 
   plug Sentry.PlugContext
-
   plug Plug.MethodOverride
   plug Plug.Head
   plug Plug.Session, @session_options
