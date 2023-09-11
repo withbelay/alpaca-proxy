@@ -28,6 +28,14 @@ defmodule AlpacaProxyWeb.Router do
     # * we can only sell them policies to cover positions they have
     get "/trading/accounts/:account_id/positions", V1Controller, :chunked_response
 
+    # https://alpaca.markets/docs/api-references/broker-api/accounts/accounts/#retrieving-an-account-trading
+    # * get cash available (to see if they can afford the policy)
+    get "/trading/accounts/:account_id/account", V1Controller, :chunked_response
+
+    # https://alpaca.markets/docs/api-references/broker-api/clock/
+    # * let investor web figure out if the market is open
+    get "/clock", V1Controller, :chunked_response
+
     # https://alpaca.markets/docs/api-references/broker-api/journals/#creating-a-journal
     # * policy payments (investor -> sweep -> belay)
     # * policy refund (belay -> sweep -> investor)
