@@ -22,7 +22,6 @@ defmodule AlpacaProxyWeb.V1Test do
     {"GET", "/v1/assets"},
     {"GET", "/v1/assets/:symbol_or_asset_id"},
     {"GET", "/v1/calendar"},
-    {"GET", "/v1/clock"},
     {"GET",
      "/v1/corporate_actions/announcements?ca_types=dividend,merger,spinoff,split&since=2022-05-01&until=2022-07-01"},
     {"POST", "/v1/accounts/:account_id/documents/upload"},
@@ -43,7 +42,6 @@ defmodule AlpacaProxyWeb.V1Test do
     {"POST", "/v1/journals/batch"},
     {"GET", "/v1/journals"},
     {"DELETE", "/v1/journals/:journal_id"},
-    {"GET", "/v1/trading/accounts/:account_id/account"},
     {"GET", "/v1/trading/accounts/:account_id/watchlists"},
     {"POST", "/v1/trading/accounts/:account_id/watchlists"},
     {"GET", "/v1/trading/accounts/:account_id/positions/:symbol_or_asset_id"},
@@ -80,8 +78,10 @@ defmodule AlpacaProxyWeb.V1Test do
   @proxied_routes [
     {"GET", "/v1/accounts?query=investor_email@gmail.com"},
     {"GET", "/v1/accounts/#{@account_id}"},
+    {"GET", "/v1/clock"},
     {"GET", "/v1/events/journals/status"},
     {"GET", "/v1/events/trades"},
+    {"GET", "/v1/trading/accounts/:account_id/account"},
     {"GET", "/v1/trading/accounts/#{@account_id}/positions"},
     {"POST", "/v1/journals"}
   ]
