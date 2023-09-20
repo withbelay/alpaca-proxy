@@ -192,14 +192,14 @@ defmodule AlpacaProxyWeb.V1Test do
   defp execute_request(method, path, base_url, authorization) do
     opts = [recv_timeout: :infinity, stream_to: self()]
     url = Path.join(base_url, path)
-    headers = [{"authorization", authorization}]
+    headers = [{"authorization", authorization}, {"content-type", "application/json"}]
 
     case method do
       "DELETE" -> HTTPoison.delete!(url, headers, opts)
       "GET" -> HTTPoison.get!(url, headers, opts)
-      "PATCH" -> HTTPoison.patch!(url, {:form, []}, headers, opts)
-      "POST" -> HTTPoison.post!(url, {:form, []}, headers, opts)
-      "PUT" -> HTTPoison.put!(url, {:form, []}, headers, opts)
+      "PATCH" -> HTTPoison.patch!(url, "", headers, opts)
+      "POST" -> HTTPoison.post!(url, "", headers, opts)
+      "PUT" -> HTTPoison.put!(url, "", headers, opts)
     end
   end
 
