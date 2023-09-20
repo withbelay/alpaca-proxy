@@ -28,7 +28,7 @@ defmodule AlpacaProxy.API do
     async_fetch!(
       build_url(config, conn),
       conn.method,
-      Map.to_list(conn.body_params),
+      conn.body,
       headers
     )
   end
@@ -40,9 +40,9 @@ defmodule AlpacaProxy.API do
     HTTPoison.get!(url, headers, opts)
   end
 
-  defp async_fetch!(url, "POST", body_params, headers) do
+  defp async_fetch!(url, "POST", body, headers) do
     opts = [recv_timeout: :infinity, stream_to: self(), timeout: :infinity]
-    HTTPoison.post!(url, {:form, body_params}, headers, opts)
+    HTTPoison.post!(url, Jason.encode!(body), headers, opts)
   end
 
   defp add_alpaca_authorization(req_headers, key, secret) do
