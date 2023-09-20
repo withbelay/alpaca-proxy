@@ -8,7 +8,6 @@ defmodule AlpacaProxy.API do
   @enforce_keys [:base_url, :key, :secret]
   defstruct [:base_url, :key, :secret]
 
-  @type body_params :: Conn.params() | []
   @type headers :: HTTPoison.headers()
 
   @spec get_config :: struct
@@ -33,9 +32,9 @@ defmodule AlpacaProxy.API do
     )
   end
 
-  @spec async_fetch!(String.t(), method :: String.t(), body_params(), headers()) ::
+  @spec async_fetch!(String.t(), method :: String.t(), Conn.params(), headers()) ::
           AsyncResponse.t()
-  defp async_fetch!(url, "GET", %{}, headers) do
+  defp async_fetch!(url, "GET", body, headers) when map_size(body) == 0 do
     opts = [recv_timeout: :infinity, stream_to: self(), timeout: :infinity]
     HTTPoison.get!(url, headers, opts)
   end
