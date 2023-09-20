@@ -28,14 +28,14 @@ defmodule AlpacaProxy.API do
     async_fetch!(
       build_url(config, conn),
       conn.method,
-      conn.body,
+      conn.body_params,
       headers
     )
   end
 
   @spec async_fetch!(String.t(), method :: String.t(), body_params(), headers()) ::
           AsyncResponse.t()
-  defp async_fetch!(url, "GET", [], headers) do
+  defp async_fetch!(url, "GET", %{}, headers) do
     opts = [recv_timeout: :infinity, stream_to: self(), timeout: :infinity]
     HTTPoison.get!(url, headers, opts)
   end
