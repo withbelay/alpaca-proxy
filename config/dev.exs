@@ -4,7 +4,7 @@ import Config
 config :alpaca_proxy, secret: "secret"
 
 config :alpaca_proxy, AlpacaProxy.API,
-  host: "https://broker-api.sandbox.alpaca.markets",
+  base_url: "https://broker-api.sandbox.alpaca.markets",
   key: System.get_env("ALPACA_KEY", "KEY"),
   secret: System.get_env("ALPACA_SECRET", "SECRET")
 
