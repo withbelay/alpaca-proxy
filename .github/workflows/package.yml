@@ -1,9 +1,10 @@
 name: Create and publish a Docker container
 
 on:
-  workflow_dispatch:
   push:
-    branches: [main, staging]
+    branches: [main]
+    tags:
+      - "v*.*.*"
 
 env:
   REGISTRY: ghcr.io
@@ -11,7 +12,7 @@ env:
 
 jobs:
   build-and-push-image:
-    name: Build and test
+    name: Build and push Docker image to Github Packages
     runs-on: ubuntu-latest-m
 
     permissions:
