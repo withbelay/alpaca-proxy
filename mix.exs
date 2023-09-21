@@ -29,7 +29,7 @@ defmodule AlpacaProxy.MixProject do
       elixirc_paths: elixirc_paths(Mix.env()),
       start_permanent: Mix.env() == :prod,
       test_coverage: [tool: ExCoveralls],
-      version: "1.0.0-rc.0",
+      version: "0.1.0",
       aliases: aliases(),
       preferred_cli_env: preferred_cli_envs(),
       dialyzer: [plt_add_apps: [:mix]]
