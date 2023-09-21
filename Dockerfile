@@ -31,6 +31,9 @@ WORKDIR /app
 RUN mix local.hex --force && \
     mix local.rebar --force
 
+# set phoenix secret key base
+RUN export SECRET_KEY_BASE="$(mix phx.gen.secret)"
+
 # set build ENV
 ENV MIX_ENV="prod"
 
