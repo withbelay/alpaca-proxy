@@ -14,6 +14,7 @@ There are some envs that will be required across any method of running AlpacaPro
 - `ALPACA_BASE_URL`: The Alpaca base url, for sandbox it will be: `https://broker-api.sandbox.alpaca.markets/`, for production, it will be: `https://broker-api.alpaca.markets/`
 - `ALPACA_KEY`: The Alpaca key retrieved from the Alpaca dashboard
 - `ALPACA_SECRET`: The Alpaca secret retrieved from the Alpaca dashboard
+- `SECRET_KEY_BASE`: Required by Elixir Phoenix, set to any secure passphrase, for example, the output of `openssl rand -hex 64`
 
 ### Via Docker
 

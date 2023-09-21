@@ -31,9 +31,6 @@ WORKDIR /app
 RUN mix local.hex --force && \
     mix local.rebar --force
 
-# set phoenix secret key base
-RUN export SECRET_KEY_BASE="$(mix phx.gen.secret)"
-
 # set build ENV
 ENV MIX_ENV="prod"
 
@@ -85,5 +82,7 @@ ENV MIX_ENV="prod"
 COPY --from=builder --chown=nobody:root /app/_build/${MIX_ENV}/rel/alpaca_proxy ./
 
 USER nobody
+
+EXPOSE 4000
 
 CMD ["/app/bin/server"]
