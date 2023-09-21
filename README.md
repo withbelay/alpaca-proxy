@@ -17,7 +17,7 @@ There are some envs that will be required across any method of running AlpacaPro
 
 ### Via Docker
 
-The latest docker image will be available in Github packages, see there for the latest version. From there you can pull down the latest version via the following command:
+**When running via Docker, make sure your container is listening on port 4000.** The latest docker image will be available in Github packages, see there for the latest version. From there you can pull down the latest version via the following command:
 
 ```text
 For a specific version, use:
