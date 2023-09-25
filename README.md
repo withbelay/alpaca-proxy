@@ -1,5 +1,7 @@
 # AlpacaProxy
 
+[![Coverage Status](https://coveralls.io/repos/github/withbelay/alpaca-proxy/badge.svg?t=9h4WYI)](https://coveralls.io/github/withbelay/alpaca-proxy)
+
 The Alpaca Proxy serves as a proxy between Belay and an alpaca account. If you plan to utilize Belay to offer insurance to your investors, and you utilize Alpaca as your brokerage provider, this proxy serves as a intermediatory between your Alpaca brokerage service and Belay. This proxy allows you to control what permissions we have to your Alpaca brokerage service and hide your private keys while still giving Belay a way to communicate to Alpaca.
 
 ## Usage
