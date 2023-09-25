@@ -7,6 +7,10 @@ config :alpaca_proxy, AlpacaProxyWeb.Endpoint,
 
 config :logger, :console, format: "$time $metadata[$level] $message\n", metadata: [:request_id]
 
+config :hammer,
+  backend:
+    {Hammer.Backend.ETS, [expiry_ms: :timer.hours(1), cleanup_interval_ms: :timer.minutes(10)]}
+
 config :phoenix, :json_library, Jason
 
 import_config "#{config_env()}.exs"

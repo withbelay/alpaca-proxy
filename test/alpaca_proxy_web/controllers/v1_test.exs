@@ -89,6 +89,9 @@ defmodule AlpacaProxyWeb.V1Test do
   @endpoint AlpacaProxyWeb.Endpoint
   @chunked_success ["that", "worked"]
 
+  @default_rate_limit_interval :timer.minutes(1)
+  @default_rate_limit 100
+
   setup _tags do
     # Our configuration of AlpacaProxyWeb.Endpoint has set server to true, which implies we are running a
     # real local server. Below we attach bypass to listen to the port of that live server
@@ -134,6 +137,59 @@ defmodule AlpacaProxyWeb.V1Test do
         |> ConnTest.get("/v1/accounts")
 
       assert ConnTest.response(conn, 401) == "Unauthorized"
+    end
+  end
+
+  describe "rate limits" do
+    # These tests verify we are respecting the rate limiting settings being configured
+    test "when rate limit reached on non-account related alpaca request, returns 429", %{
+      conn: conn,
+      authorization: authorization
+    } do
+      # Alpaca routes that do not need the account in the path are rate limited by the IP
+      bucket_id = "belay:127.0.0.1"
+
+      :ok = fast_forward_rate_limit(bucket_id)
+
+      assert conn
+             |> Conn.put_req_header("authorization", authorization)
+             |> ConnTest.get("/v1/accounts")
+             |> ConnTest.response(429) == "Too Many Requests"
+    end
+
+    test "when rate limit reached on account related alpaca request, returns 429", %{
+      conn: conn,
+      authorization: authorization
+    } do
+      # Alpaca routes that do need the account in the path are rate limited by that account id,
+      # as according to Alpaca's docs
+
+      bucket_id = "belay:#{@account_id}"
+      :ok = fast_forward_rate_limit(bucket_id)
+
+      assert conn
+             |> Conn.put_req_header("authorization", authorization)
+             |> ConnTest.get("/v1/accounts/#{@account_id}")
+             |> ConnTest.response(429) == "Too Many Requests"
+    end
+
+    defp fast_forward_rate_limit(bucket_id) do
+      {:ok, {_, count_remaining, _, _, _}} =
+        Hammer.inspect_bucket(bucket_id, @default_rate_limit_interval, @default_rate_limit)
+
+      # Increment the rate so that we only have 0 requests left in rate limit bucket
+      {:allow, 100} =
+        Hammer.check_rate_inc(
+          bucket_id,
+          @default_rate_limit_interval,
+          @default_rate_limit,
+          count_remaining
+        )
+
+      on_exit(fn ->
+        # Reset rate limit buckets
+        Hammer.delete_buckets(bucket_id)
+      end)
     end
   end
 

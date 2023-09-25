@@ -11,20 +11,7 @@ defmodule AlpacaProxy.MixProject do
   def project do
     [
       app: :alpaca_proxy,
-      deps: [
-        {:bypass, "~> 2.1", only: :test},
-        {:credo, "~> 1.7", only: [:dev, :test], runtime: false},
-        {:dialyxir, "~> 1.4", only: :test, runtime: false},
-        {:ex_doc, "~> 0.30", only: :dev, runtime: false},
-        {:excoveralls, "~> 0.17", only: :test},
-        {:httpoison, "~> 2.1"},
-        {:jason, "~> 1.4"},
-        {:logger_backends, "~> 1.0"},
-        {:mix_test_watch, "~> 1.0", only: [:dev, :test], runtime: false},
-        {:phoenix, "~> 1.7"},
-        {:plug_cowboy, "~> 2.6"},
-        {:sentry, "~> 8.1"}
-      ],
+      deps: deps(),
       elixir: "~> 1.15",
       elixirc_paths: elixirc_paths(Mix.env()),
       start_permanent: Mix.env() == :prod,
@@ -33,6 +20,25 @@ defmodule AlpacaProxy.MixProject do
       aliases: aliases(),
       preferred_cli_env: preferred_cli_envs(),
       dialyzer: [plt_add_apps: [:mix]]
+    ]
+  end
+
+  defp deps do
+    [
+      {:bypass, "~> 2.1", only: :test},
+      {:credo, "~> 1.7", only: [:dev, :test], runtime: false},
+      {:dialyxir, "~> 1.4", only: :test, runtime: false},
+      {:ex_doc, "~> 0.30", only: :dev, runtime: false},
+      {:excoveralls, "~> 0.17", only: :test},
+      {:hammer, "~> 6.1"},
+      {:hammer_plug, "~> 3.0"},
+      {:httpoison, "~> 2.1"},
+      {:jason, "~> 1.4"},
+      {:logger_backends, "~> 1.0"},
+      {:mix_test_watch, "~> 1.0", only: [:dev, :test], runtime: false},
+      {:phoenix, "~> 1.7"},
+      {:plug_cowboy, "~> 2.6"},
+      {:sentry, "~> 8.1"}
     ]
   end
 
