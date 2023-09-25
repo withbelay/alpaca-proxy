@@ -161,7 +161,8 @@ defmodule AlpacaProxyWeb.V1Test do
       conn: conn,
       authorization: authorization
     } do
-      # Alpaca routes that do need the account in the path are rate limited by that account id, as according to Alpaca's docs
+      # Alpaca routes that do need the account in the path are rate limited by that account id,
+      # as according to Alpaca's docs
 
       bucket_id = "belay:#{@account_id}"
       :ok = fast_forward_rate_limit(bucket_id)
